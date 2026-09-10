@@ -43,6 +43,7 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-good: var(--good);
+  --color-warn: var(--warn);
 
   --radius-xs: 2px;
   --radius-sm: 4px;

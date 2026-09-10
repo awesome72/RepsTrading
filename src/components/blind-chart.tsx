@@ -29,6 +29,9 @@ type BlindChartProps = {
   /** 익명 연습 코드, 예: "연습 #A7F2" */
   label: string;
   className?: string;
+  /** 채점 화면용: 가격 축 라벨과 마지막 가격 표시를 숨겨 손익을 유추하지 못하게 한다 */
+  hidePriceLabels?: boolean;
+  height?: number;
 };
 
 function cssVar(name: string): string {
@@ -47,7 +50,7 @@ function toChartCandle(c: Candle) {
 }
 
 export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
-  function BlindChart({ candles, label, className }, ref) {
+  function BlindChart({ candles, label, className, hidePriceLabels, height = 420 }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -76,6 +79,7 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
         },
         timeScale: { visible: false, borderVisible: false },
         rightPriceScale: {
+          visible: !hidePriceLabels,
           borderVisible: false,
           scaleMargins: { top: 0.1, bottom: 0.25 },
         },
@@ -89,6 +93,8 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
         borderVisible: false,
         wickUpColor: up,
         wickDownColor: down,
+        priceLineVisible: !hidePriceLabels,
+        lastValueVisible: !hidePriceLabels,
       });
 
       const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -117,6 +123,8 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
         chart.remove();
         chartRef.current = null;
       };
+      // hidePriceLabels는 인스턴스 생성 시 한 번만 적용한다 (채점 화면은 별도 인스턴스로 마운트됨)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     function render(all: Candle[]) {
@@ -160,7 +168,7 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
           <span className="absolute left-3 top-3 z-10 rounded bg-background/70 px-2 py-1 font-mono text-[11px] text-muted-foreground">
             {label}
           </span>
-          <div ref={containerRef} className="h-[420px] w-full" />
+          <div ref={containerRef} className="w-full" style={{ height }} />
         </div>
       </div>
     );

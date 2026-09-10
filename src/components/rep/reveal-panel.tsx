@@ -1,0 +1,115 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { Rep } from "@/lib/rep/types";
+import type { SetupLabel } from "@/lib/market/scenario";
+
+const SETUP_KOREAN: Record<SetupLabel, string> = {
+  pullback: "눌림목",
+  breakout: "돌파",
+  none: "셋업 없음",
+};
+
+type RevealPanelProps = {
+  rep: Rep & { result: NonNullable<Rep["result"]> };
+  onNext: () => void;
+};
+
+export function RevealPanel({ rep, onNext }: RevealPanelProps) {
+  if (rep.exitReason === "pass") {
+    const wasCorrect = rep.setupLabel === "none";
+    return (
+      <div className="flex flex-col gap-4">
+        <div
+          className={cn(
+            "rounded-lg border px-4 py-3 text-[13px] leading-relaxed",
+            wasCorrect
+              ? "border-good/40 bg-good/10 text-foreground"
+              : "border-border bg-card text-foreground"
+          )}
+        >
+          {wasCorrect
+            ? "정답입니다 — 이 구간은 셋업이 아니었습니다. 지나간 것이 맞는 판단이었습니다."
+            : `이 구간은 사실 ${SETUP_KOREAN[rep.setupLabel]} 셋업이었습니다. 지나간 것도 훈련 데이터가 됩니다.`}
+        </div>
+        <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
+          다음 연습
+        </Button>
+      </div>
+    );
+  }
+
+  const r = rep.result.rMultiple;
+  const goodJudgment = rep.decisionGrade === "A" || rep.decisionGrade === "B";
+  const goodOutcome = r > 0;
+  const lucky = !goodJudgment && goodOutcome;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-6">
+        <span className="text-[12px] text-muted-foreground">이번 판단의 결과</span>
+        <span
+          className={cn(
+            "num text-[40px] font-bold leading-none",
+            r > 0 ? "text-up" : r < 0 ? "text-down" : "text-foreground"
+          )}
+        >
+          {r > 0 ? "+" : ""}
+          {r.toFixed(1)}R
+        </span>
+      </div>
+
+      <div className="grid grid-cols-[auto_1fr_1fr] gap-1 text-center text-[12px]">
+        <div />
+        <div className="py-1 text-muted-foreground">좋은 결과</div>
+        <div className="py-1 text-muted-foreground">나쁜 결과</div>
+
+        <div className="flex items-center justify-end pr-2 text-muted-foreground">좋은 판단</div>
+        <MatrixCell active={goodJudgment && goodOutcome}>정상</MatrixCell>
+        <MatrixCell active={goodJudgment && !goodOutcome}>정상</MatrixCell>
+
+        <div className="flex items-center justify-end pr-2 text-muted-foreground">나쁜 판단</div>
+        <MatrixCell active={lucky} warn>
+          ⚠ 위험
+        </MatrixCell>
+        <MatrixCell active={!goodJudgment && !goodOutcome}>정상</MatrixCell>
+      </div>
+
+      {lucky && (
+        <div className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+          이번엔 운이 좋았습니다. 이 방식을 반복하면 결국 잃습니다.
+        </div>
+      )}
+
+      <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
+        다음 연습
+      </Button>
+    </div>
+  );
+}
+
+function MatrixCell({
+  active,
+  warn,
+  children,
+}: {
+  active: boolean;
+  warn?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border py-2 text-[12px] font-medium",
+        active
+          ? warn
+            ? "border-warn bg-warn/15 text-warn"
+            : "border-border bg-surface-2 text-foreground"
+          : "border-border/50 bg-transparent text-muted-foreground/50"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
