@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BlindChart } from "@/components/blind-chart";
-import { useRepLogStore } from "@/lib/rep/log-store";
+import { useUser } from "@/lib/auth/use-user";
+import { apiListReps, type ServerRep } from "@/lib/rep/api";
 import { generateScenario } from "@/lib/market/scenario";
-import type { DecisionGrade, Rep, SetupChoice } from "@/lib/rep/types";
+import type { DecisionGrade, SetupChoice } from "@/lib/rep/types";
 import { cn } from "@/lib/utils";
 
 const SETUP_LABEL: Record<SetupChoice, string> = {
@@ -13,13 +15,13 @@ const SETUP_LABEL: Record<SetupChoice, string> = {
   other: "기타",
 };
 
-function toCsv(reps: Rep[]): string {
+function toCsv(reps: ServerRep[]): string {
   const header = ["날짜", "셋업", "R", "등급", "계획 지킴"];
   const rows = reps.map((r) => [
-    new Date(r.committedAt ?? r.openedAt).toLocaleString("ko-KR"),
-    r.plan ? SETUP_LABEL[r.plan.setupChoice] : "",
-    r.result ? r.result.rMultiple.toFixed(2) : "",
-    r.decisionGrade ?? "",
+    new Date(r.committed_at).toLocaleString("ko-KR"),
+    SETUP_LABEL[r.plan_setup],
+    r.r_result !== undefined ? r.r_result.toFixed(2) : "",
+    r.decision_grade ?? "",
     r.adhered ? "지킴" : "어김",
   ]);
   return [header, ...rows]
@@ -40,25 +42,38 @@ function downloadCsv(content: string, filename: string) {
 }
 
 export default function JournalPage() {
-  const reps = useRepLogStore((s) => s.reps);
+  const router = useRouter();
+  const { user, loading: userLoading } = useUser();
+  const [reps, setReps] = useState<ServerRep[] | null>(null);
   const [setupFilter, setSetupFilter] = useState<"all" | SetupChoice>("all");
   const [gradeFilter, setGradeFilter] = useState<"all" | DecisionGrade>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    useRepLogStore.getState().hydrate();
-  }, []);
+    if (!userLoading && !user) router.replace("/login");
+  }, [userLoading, user, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    apiListReps()
+      .then(setReps)
+      .catch(() => setReps([]));
+  }, [user]);
 
   const traded = useMemo(
-    () => reps.filter((r) => r.exitReason !== "pass" && !r.guided && r.result && r.plan),
+    () => (reps ?? []).filter((r) => r.exit_reason !== "pass" && r.r_result !== undefined),
     [reps]
   );
 
   const filtered = traded.filter(
     (r) =>
-      (setupFilter === "all" || r.plan?.setupChoice === setupFilter) &&
-      (gradeFilter === "all" || r.decisionGrade === gradeFilter)
+      (setupFilter === "all" || r.plan_setup === setupFilter) &&
+      (gradeFilter === "all" || r.decision_grade === gradeFilter)
   );
+
+  if (userLoading || !user || reps === null) {
+    return <div className="h-64 py-10" />;
+  }
 
   return (
     <div className="flex flex-col gap-4 py-6">
@@ -136,11 +151,11 @@ function RepRow({
   expanded,
   onToggle,
 }: {
-  rep: Rep;
+  rep: ServerRep;
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const r = rep.result?.rMultiple ?? 0;
+  const r = rep.r_result ?? 0;
   return (
     <>
       <tr
@@ -148,16 +163,19 @@ function RepRow({
         className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-2"
       >
         <td className="num px-3 py-2 text-muted-foreground">
-          {new Date(rep.committedAt ?? rep.openedAt).toLocaleDateString("ko-KR")}
+          {new Date(rep.committed_at).toLocaleDateString("ko-KR")}
         </td>
-        <td className="px-3 py-2 text-foreground">
-          {rep.plan ? SETUP_LABEL[rep.plan.setupChoice] : "-"}
-        </td>
-        <td className={cn("num px-3 py-2 text-right", r > 0 ? "text-up" : r < 0 ? "text-down" : "text-foreground")}>
+        <td className="px-3 py-2 text-foreground">{SETUP_LABEL[rep.plan_setup]}</td>
+        <td
+          className={cn(
+            "num px-3 py-2 text-right",
+            r > 0 ? "text-up" : r < 0 ? "text-down" : "text-foreground"
+          )}
+        >
           {r > 0 ? "+" : ""}
           {r.toFixed(1)}R
         </td>
-        <td className="px-3 py-2 text-foreground">{rep.decisionGrade ?? "-"}</td>
+        <td className="px-3 py-2 text-foreground">{rep.decision_grade ?? "-"}</td>
         <td className="px-3 py-2 text-foreground">{rep.adhered ? "지킴" : "어김"}</td>
       </tr>
       {expanded && (
@@ -171,20 +189,28 @@ function RepRow({
   );
 }
 
-function RepDetail({ rep }: { rep: Rep }) {
-  const scenario = useMemo(() => generateScenario(rep.seed), [rep.seed]);
+function RepDetail({ rep }: { rep: ServerRep }) {
+  const scenario = useMemo(() => generateScenario(rep.scenario_seed), [rep.scenario_seed]);
+  const entryPrice = scenario.candles[scenario.decisionIndex - 1].close;
+  const targetPrice = entryPrice + rep.plan_target_r * (entryPrice - rep.plan_stop);
   const start = Math.max(0, scenario.decisionIndex - 20);
-  const end = (rep.exitIndex ?? scenario.decisionIndex) + 1;
+  const end = (rep.exit_index ?? scenario.decisionIndex) + 1;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-muted-foreground">
-        <span>셋업: {rep.plan ? SETUP_LABEL[rep.plan.setupChoice] : "-"}</span>
-        <span className="num">손절가: {rep.plan ? Math.round(rep.plan.stopPrice).toLocaleString("ko-KR") : "-"}원</span>
-        <span className="num">목표가: {rep.plan ? Math.round(rep.plan.targetPrice).toLocaleString("ko-KR") : "-"}원</span>
-        <span className="num">청산가: {rep.exitPrice ? Math.round(rep.exitPrice).toLocaleString("ko-KR") : "-"}원</span>
+        <span>셋업: {SETUP_LABEL[rep.plan_setup]}</span>
+        <span className="num">손절가: {Math.round(rep.plan_stop).toLocaleString("ko-KR")}원</span>
+        <span className="num">목표가: {Math.round(targetPrice).toLocaleString("ko-KR")}원</span>
+        <span className="num">
+          청산가: {rep.exit_price ? Math.round(rep.exit_price).toLocaleString("ko-KR") : "-"}원
+        </span>
       </div>
-      <BlindChart candles={scenario.candles.slice(start, end)} label={`연습 #${rep.seed.toString(16).slice(-4).toUpperCase()}`} height={240} />
+      <BlindChart
+        candles={scenario.candles.slice(start, end)}
+        label={`연습 #${rep.scenario_seed.toString(16).slice(-4).toUpperCase()}`}
+        height={240}
+      />
     </div>
   );
 }

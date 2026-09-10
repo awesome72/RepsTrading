@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { TopBar } from "@/components/layout/top-bar";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { StatsBar } from "@/components/layout/stats-bar";
+import { MigrationRunner } from "@/components/auth/migration-runner";
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         <TooltipProvider delayDuration={150}>
+          <MigrationRunner />
           <TopBar />
           <StatsBar />
           <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 pb-16 md:pb-0">

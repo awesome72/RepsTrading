@@ -9,6 +9,7 @@ import type { Plan, SetupChoice } from "@/lib/rep/types";
 type RepCardFormProps = {
   entryPrice: number;
   onSave: (plan: Plan) => void;
+  saving?: boolean;
 };
 
 const SETUP_OPTIONS: {
@@ -38,7 +39,7 @@ function formatWon(n: number): string {
   return Math.round(n).toLocaleString("ko-KR") + "원";
 }
 
-export function RepCardForm({ entryPrice, onSave }: RepCardFormProps) {
+export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
   const [setupChoice, setSetupChoice] = useState<SetupChoice | null>(null);
   const [stopInput, setStopInput] = useState("");
   const [targetMode, setTargetMode] = useState<number | "custom" | null>(null);
@@ -201,11 +202,11 @@ export function RepCardForm({ entryPrice, onSave }: RepCardFormProps) {
         <p className="text-center text-[11px] text-muted-foreground">저장하면 못 고칩니다</p>
         <Button
           size="lg"
-          disabled={!canSave}
+          disabled={!canSave || saving}
           onClick={handleSave}
           className="h-12 w-full text-[15px] font-bold"
         >
-          계획 저장 (저장 후 수정 불가)
+          {saving ? "저장 중..." : "계획 저장 (저장 후 수정 불가)"}
         </Button>
       </div>
     </div>

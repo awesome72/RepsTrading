@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -13,7 +14,8 @@ import {
   YAxis,
 } from "recharts";
 import { GateProgress } from "@/components/gate/gate-progress";
-import { useRepLogStore } from "@/lib/rep/log-store";
+import { useUser } from "@/lib/auth/use-user";
+import { apiListReps, serverRepToRep } from "@/lib/rep/api";
 import { useAccountStore } from "@/lib/account/store";
 import { evaluateGate } from "@/lib/gate/rules";
 import {
@@ -35,17 +37,33 @@ function isGoodJudgment(rep: Rep): boolean {
 }
 
 export default function ProgressPage() {
-  const reps = useRepLogStore((s) => s.reps);
+  const router = useRouter();
+  const { user, loading: userLoading } = useUser();
+  const [reps, setReps] = useState<Rep[] | null>(null);
   const gateLevel = useAccountStore((s) => s.gateLevel);
 
   useEffect(() => {
-    useRepLogStore.getState().hydrate();
+    if (!userLoading && !user) router.replace("/login");
+  }, [userLoading, user, router]);
+
+  useEffect(() => {
     useAccountStore.getState().hydrate();
   }, []);
 
-  const traded = useMemo(() => tradedReps(reps), [reps]);
+  useEffect(() => {
+    if (!user) return;
+    apiListReps()
+      .then((rows) => setReps(rows.map(serverRepToRep)))
+      .catch(() => setReps([]));
+  }, [user]);
+
+  const traded = useMemo(() => tradedReps(reps ?? []), [reps]);
   const n = traded.length;
-  const gateEvaluation = useMemo(() => evaluateGate(gateLevel, reps), [gateLevel, reps]);
+  const gateEvaluation = useMemo(() => evaluateGate(gateLevel, reps ?? []), [gateLevel, reps]);
+
+  if (userLoading || !user || reps === null) {
+    return <div className="h-64 py-10" />;
+  }
 
   if (n < MIN_SAMPLE) {
     return (
