@@ -10,6 +10,18 @@ type InfoTooltipProps = {
   triggerClassName?: string;
 };
 
+/** 통계 라벨 옆에 붙이는 작은 "?" 아이콘 트리거. 용어 자체가 아니라 화면 맥락을 설명할 때 쓴다. */
+export function InfoDot({ content }: { content: React.ReactNode }) {
+  return (
+    <InfoTooltip
+      content={content}
+      triggerClassName="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-muted-foreground text-[9px] leading-none text-muted-foreground cursor-help"
+    >
+      ?
+    </InfoTooltip>
+  );
+}
+
 /** 호버(데스크톱)/탭(모바일)으로 여는 포털 툴팁의 공통 로직. <Term>이 이걸 감싼다. */
 export function InfoTooltip({ content, children, triggerClassName }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);

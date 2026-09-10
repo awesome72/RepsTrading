@@ -88,6 +88,12 @@ export const glossary: Record<string, GlossaryTerm> = {
     term: "돌파",
     description: "가격이 그동안 못 넘던 벽을 뚫고 올라가는 것.",
   },
+  "pan-byeol-jeong-hwak-do": {
+    id: "pan-byeol-jeong-hwak-do",
+    term: "판별 정확도",
+    description:
+      "차트를 보고 눌림목·돌파 같은 셋업 모양을 맞게 구분해낸 비율. 승률과 달리 '돈을 벌었는지'가 아니라 '모양을 알아봤는지'만 봅니다.",
+  },
 };
 
 export function getGlossaryTerm(id: string): GlossaryTerm | undefined {

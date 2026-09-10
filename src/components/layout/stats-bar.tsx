@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { InfoTooltip } from "@/components/info-tooltip";
+import { InfoDot } from "@/components/info-tooltip";
+import { Term } from "@/components/term";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { adherenceRate, expectancy, requiredSample, tradedReps } from "@/lib/metrics/stats";
 
@@ -42,20 +43,17 @@ export function StatsBar() {
           <span className="num">
             {remaining !== null ? `결론까지 ${remaining}회 남음` : "결론까지는 더 지켜봐야 합니다"}
           </span>
-          <InfoTooltip
-            content="지금까지의 성적이 실력인지 운인지 판단하려면 이만큼 더 필요합니다. 대부분의 사람이 30~50번 해보고 '이 방법 안 되네' 하며 그만두는데, 그 횟수로는 동전던지기와 구별이 안 됩니다."
-            triggerClassName="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-muted-foreground text-[9px] leading-none text-muted-foreground cursor-help"
-          >
-            ?
-          </InfoTooltip>
+          <InfoDot content="지금까지의 성적이 실력인지 운인지 판단하려면 이만큼 더 필요합니다. 대부분의 사람이 30~50번 해보고 '이 방법 안 되네' 하며 그만두는데, 그 횟수로는 동전던지기와 구별이 안 됩니다." />
         </span>
         <span className="text-muted-foreground">·</span>
         <span className={`num ${exp >= 0 ? "text-up" : "text-down"}`}>
-          평균 {exp >= 0 ? "+" : ""}
+          <Term id="gi-dae-gap">평균</Term> {exp >= 0 ? "+" : ""}
           {exp.toFixed(2)}R
         </span>
         <span className="text-muted-foreground">·</span>
-        <span className="num">계획 지킴 {(adherence * 100).toFixed(0)}%</span>
+        <span className="num">
+          <Term id="jun-su-yul">계획 지킴</Term> {(adherence * 100).toFixed(0)}%
+        </span>
       </div>
     </div>
   );

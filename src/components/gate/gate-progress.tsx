@@ -1,3 +1,4 @@
+import { InfoDot } from "@/components/info-tooltip";
 import { cn } from "@/lib/utils";
 import type { GateEvaluation } from "@/lib/gate/types";
 
@@ -23,7 +24,10 @@ export function GateProgress({ evaluation }: { evaluation: GateEvaluation }) {
           return (
             <div key={r.id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-[12px]">
-                <span className="text-muted-foreground">{r.label}</span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  {r.label}
+                  {r.reason && <InfoDot content={r.reason} />}
+                </span>
                 <span className="num text-foreground">
                   {r.current}
                   {r.unit} / {r.target}

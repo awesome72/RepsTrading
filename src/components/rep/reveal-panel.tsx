@@ -2,7 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { ImmediateFeedback } from "@/components/rep/immediate-feedback";
+import { InfoDot } from "@/components/info-tooltip";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
+import { getGradeOption } from "@/lib/rep/grade-options";
 import { cn } from "@/lib/utils";
 import type { Rep } from "@/lib/rep/types";
 import type { SetupLabel } from "@/lib/market/scenario";
@@ -88,8 +90,23 @@ export function RevealPanel({
         </span>
       </div>
 
+      {(() => {
+        const graded = getGradeOption(rep.decisionGrade);
+        if (!graded) return null;
+        return (
+          <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card px-4 py-3 text-[13px]">
+            <p className="font-semibold text-foreground">
+              당신의 채점: {graded.value} — {graded.label}
+            </p>
+            <p className="text-[12px] leading-snug text-muted-foreground">{graded.desc}</p>
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-[auto_1fr_1fr] gap-1 text-center text-[12px]">
-        <div />
+        <div className="flex items-center gap-1 pb-1">
+          <InfoDot content="좋은 판단 = A/B 등급(계획을 지킴), 나쁜 판단 = C/D 등급(계획을 어김). 결과(R)와는 별개로, 이 표는 '어겼는데 벌었는지·지켰는데 잃었는지'를 보여줍니다." />
+        </div>
         <div className="py-1 text-muted-foreground">좋은 결과</div>
         <div className="py-1 text-muted-foreground">나쁜 결과</div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { useAccountStore } from "@/lib/account/store";
@@ -31,6 +32,12 @@ export function TopBar() {
           REPS
         </span>
         <div className="flex items-center gap-3">
+          <Link
+            href="/glossary"
+            className="text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            용어 사전
+          </Link>
           {user && (
             <button
               type="button"

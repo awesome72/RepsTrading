@@ -42,6 +42,8 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
         target: t.count,
         unit: "회",
         met: n >= t.count,
+        reason:
+          "표본이 적으면 잘한 건지 운인지 구별이 안 됩니다. 300회는 한 가지 셋업의 실행력을 운과 구별해서 볼 수 있는 최소 단위입니다.",
       },
       {
         id: "adherence",
@@ -50,6 +52,8 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
         target: pct1(t.adherence),
         unit: "%",
         met: adherence >= t.adherence,
+        reason:
+          "이 서비스의 1번 성적표는 수익이 아니라 계획을 지켰는지입니다. 실행이 안정되지 않으면 다음 단계(판별)로 넘어가도 의미가 없습니다.",
       },
       {
         id: "abGrade",
@@ -58,6 +62,7 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
         target: pct1(t.abGrade),
         unit: "%",
         met: abRate >= t.abGrade,
+        reason: "채점 대부분이 A·B(계획 준수)여야, 지금의 좋은 결과가 우연이 아니라고 볼 수 있습니다.",
       },
     ];
     return { level, requirements, passed: requirements.every((r) => r.met) };
@@ -78,6 +83,7 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
         target: t.count,
         unit: "회",
         met: n >= t.count,
+        reason: "여러 셋업을 섞어서 판별하려면 1단계보다 더 많은 표본이 필요합니다.",
       },
       {
         id: "setupAccuracy",
@@ -86,6 +92,7 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
         target: pct1(t.setupAccuracy),
         unit: "%",
         met: accuracy >= t.setupAccuracy,
+        reason: "여러 셋업을 섞어 쓰려면 먼저 차트를 보고 모양을 정확히 구분할 수 있어야 합니다.",
       },
       {
         id: "expectancy",
@@ -94,6 +101,7 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
         target: t.expectancy,
         unit: "R",
         met: exp >= t.expectancy,
+        reason: "실행력만으로는 부족합니다 — 실제로 돈을 버는 방향(+R)인지도 확인합니다.",
       },
       {
         id: "sample",
@@ -102,6 +110,8 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
         target: Number.isFinite(nStar) ? Math.ceil(nStar) : n,
         unit: "회",
         met: sampleMet,
+        reason:
+          "지금까지의 승률·평균 R의 변동성을 근거로 계산한, 우연이 아니라고 믿을 수 있는 최소 횟수입니다. 성적이 들쭉날쭉할수록 이 숫자는 커집니다.",
       },
     ];
     return { level, requirements, passed: requirements.every((r) => r.met) };
@@ -117,6 +127,7 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
       target,
       unit: "회",
       met: n >= target,
+      reason: "실계좌로 넘어가기 전 마지막 확인 구간입니다. 실제 돈 연동은 아직 지원하지 않아 안내만 제공합니다.",
     },
   ];
   return { level, requirements, passed: false };

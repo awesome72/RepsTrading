@@ -7,6 +7,8 @@ export type GateRequirement = {
   target: number;
   unit: "회" | "%" | "R";
   met: boolean;
+  /** 이 기준이 왜 이 숫자인지에 대한 짧은 설명 */
+  reason?: string;
 };
 
 export type GateEvaluation = {

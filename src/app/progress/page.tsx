@@ -14,6 +14,8 @@ import {
   YAxis,
 } from "recharts";
 import { GateProgress } from "@/components/gate/gate-progress";
+import { InfoDot } from "@/components/info-tooltip";
+import { Term } from "@/components/term";
 import { useUser } from "@/lib/auth/use-user";
 import { apiListReps, serverRepToRep } from "@/lib/rep/api";
 import { useAccountStore } from "@/lib/account/store";
@@ -107,19 +109,36 @@ export default function ProgressPage() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
-          label="평균 R"
+          label={<Term id="gi-dae-gap">평균 R</Term>}
           value={`${exp >= 0 ? "+" : ""}${exp.toFixed(2)}R`}
           tone={exp >= 0 ? "up" : "down"}
         />
-        <StatCard label="남은 횟수" value={remaining !== null ? `${remaining}회` : "-"} />
-        <StatCard label="계획 지킴" value={`${Math.round(adherence * 100)}%`} />
-        <StatCard label="판별 정확도" value={`${Math.round(accuracy * 100)}%`} />
+        <StatCard
+          label={
+            <span className="inline-flex items-center gap-1">
+              남은 횟수
+              <InfoDot content="지금까지의 성적이 실력인지 운인지 판단하려면 이만큼 더 필요합니다. 대부분의 사람이 30~50번 해보고 '이 방법 안 되네' 하며 그만두는데, 그 횟수로는 동전던지기와 구별이 안 됩니다." />
+            </span>
+          }
+          value={remaining !== null ? `${remaining}회` : "-"}
+        />
+        <StatCard
+          label={<Term id="jun-su-yul">계획 지킴</Term>}
+          value={`${Math.round(adherence * 100)}%`}
+        />
+        <StatCard
+          label={<Term id="pan-byeol-jeong-hwak-do">판별 정확도</Term>}
+          value={`${Math.round(accuracy * 100)}%`}
+        />
       </div>
 
       <GateProgress evaluation={gateEvaluation} />
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-[14px] font-semibold text-foreground">R 누적 곡선</h2>
+        <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
+          R 누적 곡선
+          <InfoDot content="매 판단마다 번 R을 계속 더한 값입니다. 선이 꾸준히 우상향이면 실력이 늘고 있다는 뜻이고, 들쭉날쭉하면 아직 표본이 부족하거나 계획을 자주 바꾸고 있다는 신호입니다." />
+        </h2>
         <div className="h-[220px] w-full rounded-lg border border-border bg-card p-2">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={curve}>
@@ -140,7 +159,10 @@ export default function ProgressPage() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-[14px] font-semibold text-foreground">등급 분포</h2>
+        <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
+          등급 분포
+          <InfoDot content="판단이 A/B/C/D 중 어디에 몰려 있는지 보여줍니다. 등급 기준은 채점 화면에서 매번 다시 볼 수 있습니다 — C·D가 많다면 계획을 지키는 것부터 다시 다잡아야 합니다." />
+        </h2>
         <div className="h-[180px] w-full rounded-lg border border-border bg-card p-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={gradeBars}>
@@ -161,7 +183,10 @@ export default function ProgressPage() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-[14px] font-semibold text-foreground">판단 × 결과 매트릭스</h2>
+        <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
+          판단 × 결과 매트릭스
+          <InfoDot content="판단(A/B=좋음, C/D=나쁨)과 결과(R의 부호)는 항상 같이 가지 않습니다. 왼쪽 아래 칸(나쁜 판단·좋은 결과)이 가장 위험합니다 — 운으로 벌었는데 잘했다고 착각하기 쉬운 자리입니다." />
+        </h2>
         <div className="grid grid-cols-[auto_1fr_1fr] gap-1 text-center text-[12px]">
           <div />
           <div className="py-1 text-muted-foreground">좋은 결과</div>
@@ -189,7 +214,7 @@ function StatCard({
   value,
   tone,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   tone?: "up" | "down";
 }) {
