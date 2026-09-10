@@ -9,6 +9,7 @@ import { RevealPanel } from "@/components/rep/reveal-panel";
 import { Button } from "@/components/ui/button";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
+import { useRepLogStore } from "@/lib/rep/log-store";
 import { cn } from "@/lib/utils";
 import type { DecisionGrade, Plan } from "@/lib/rep/types";
 
@@ -26,8 +27,10 @@ export default function PracticePage() {
   const exitedRef = useRef(false);
 
   const rep = useRepStore((s) => s.rep);
+  const logReps = useRepLogStore((s) => s.reps);
 
   useEffect(() => {
+    useRepLogStore.getState().hydrate();
     // 매번 랜덤이라 SSR과 절대 일치할 수 없다 — 마운트 후 클라이언트에서만 생성한다.
     const next = generateScenario();
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -114,6 +117,8 @@ export default function PracticePage() {
 
   function handlePass() {
     useRepStore.getState().pass(entryPrice);
+    const revealed = useRepStore.getState().rep;
+    if (revealed) useRepLogStore.getState().addRep(revealed);
   }
 
   function handleSavePlan(plan: Plan) {
@@ -136,6 +141,8 @@ export default function PracticePage() {
 
   function handleGrade(grade: DecisionGrade) {
     useRepStore.getState().grade(grade);
+    const revealed = useRepStore.getState().rep;
+    if (revealed) useRepLogStore.getState().addRep(revealed);
   }
 
   function handleNext() {
@@ -210,7 +217,11 @@ export default function PracticePage() {
           )}
 
           {rep.exitReason === "pass" && rep.state === "REVEALED" && (
-            <RevealPanel rep={rep as typeof rep & { result: NonNullable<typeof rep.result> }} onNext={handleNext} />
+            <RevealPanel
+              rep={rep as typeof rep & { result: NonNullable<typeof rep.result> }}
+              logReps={logReps}
+              onNext={handleNext}
+            />
           )}
         </div>
       </div>
@@ -232,6 +243,7 @@ export default function PracticePage() {
           <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
             <RevealPanel
               rep={rep as typeof rep & { result: NonNullable<typeof rep.result> }}
+              logReps={logReps}
               onNext={handleNext}
             />
           </div>

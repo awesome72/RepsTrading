@@ -7,14 +7,9 @@ export function TopBar() {
         <span className="font-mono text-lg font-bold tracking-tight text-primary">
           REPS
         </span>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-[13px] text-muted-foreground sm:inline num">
-            이번 주 12회
-          </span>
-          <Badge className="border border-border bg-card font-normal text-foreground">
-            1단계 · 실행
-          </Badge>
-        </div>
+        <Badge className="border border-border bg-card font-normal text-foreground">
+          1단계 · 실행
+        </Badge>
       </div>
     </header>
   );

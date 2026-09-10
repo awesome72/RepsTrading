@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ImmediateFeedback } from "@/components/rep/immediate-feedback";
 import { cn } from "@/lib/utils";
 import type { Rep } from "@/lib/rep/types";
 import type { SetupLabel } from "@/lib/market/scenario";
@@ -13,10 +14,12 @@ const SETUP_KOREAN: Record<SetupLabel, string> = {
 
 type RevealPanelProps = {
   rep: Rep & { result: NonNullable<Rep["result"]> };
+  /** 방금 끝난 rep까지 포함된 전체 기록 (즉시 피드백 계산용) */
+  logReps: Rep[];
   onNext: () => void;
 };
 
-export function RevealPanel({ rep, onNext }: RevealPanelProps) {
+export function RevealPanel({ rep, logReps, onNext }: RevealPanelProps) {
   if (rep.exitReason === "pass") {
     const wasCorrect = rep.setupLabel === "none";
     return (
@@ -81,6 +84,8 @@ export function RevealPanel({ rep, onNext }: RevealPanelProps) {
           이번엔 운이 좋았습니다. 이 방식을 반복하면 결국 잃습니다.
         </div>
       )}
+
+      <ImmediateFeedback logReps={logReps} />
 
       <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
         다음 연습
