@@ -25,7 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-paper text-ink">
+      <body className="min-h-full flex flex-col">
         <TooltipProvider delayDuration={150}>
           <TopBar />
           <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 pb-16 md:pb-0">

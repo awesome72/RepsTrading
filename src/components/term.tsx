@@ -46,7 +46,7 @@ export function Term({ id, children }: TermProps) {
         onMouseLeave={canHover ? () => setOpen(false) : undefined}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        className="inline border-0 bg-transparent p-0 font-medium text-ink underline decoration-muted decoration-dotted underline-offset-4 cursor-help"
+        className="inline border-0 bg-transparent p-0 font-medium text-foreground underline decoration-muted-foreground decoration-dotted underline-offset-4 cursor-help"
       >
         {children ?? entry.term}
       </button>
@@ -55,7 +55,7 @@ export function Term({ id, children }: TermProps) {
             <span
               role="tooltip"
               style={{ top: pos.top, left: pos.left }}
-              className="fixed z-50 w-max max-w-[260px] -translate-x-1/2 rounded-md bg-ink px-3 py-1.5 text-[13px] leading-relaxed text-paper shadow-md"
+              className="fixed z-50 w-max max-w-[260px] -translate-x-1/2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[13px] leading-relaxed text-foreground shadow-md"
             >
               {entry.description}
             </span>,

@@ -15,7 +15,7 @@ export function BottomTabBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 border-t border-border bg-paper md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 border-t border-border bg-background md:hidden">
       {tabs.map(({ href, label, icon: Icon }) => {
         const active = pathname?.startsWith(href);
         return (
@@ -24,7 +24,7 @@ export function BottomTabBar() {
             href={href}
             className={cn(
               "flex flex-1 flex-col items-center justify-center gap-1 text-[11px]",
-              active ? "text-ink" : "text-muted"
+              active ? "text-primary" : "text-muted-foreground"
             )}
           >
             <Icon size={20} strokeWidth={active ? 2.5 : 2} />

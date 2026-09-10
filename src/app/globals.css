@@ -38,71 +38,73 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* REPS product tokens */
-  --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-paper: var(--paper);
-  --color-surface: var(--surface);
+  /* REPS product tokens — Binance 디자인 컨셉 기반, 상승/하락은 한국 증시 관례로 고정 */
+  --color-surface-2: var(--surface-2);
   --color-up: var(--up);
   --color-down: var(--down);
   --color-good: var(--good);
-  --color-warn: var(--warn);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+  --radius-3xl: 16px;
+  --radius-4xl: 9999px;
 }
 
 :root {
   --font-pretendard: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui,
     sans-serif;
 
-  /* REPS design tokens — see MASTER 원칙, 변경 금지 */
-  --ink: #0f1d2e;
-  --ink-2: #1e3552;
-  --paper: #ffffff;
-  --surface: #f4f6f9;
-  --border: #e2e8f0;
-  --muted: #64748b;
-  --up: #d93025; /* 상승 = 빨강 (한국 증시 관례) */
-  --down: #1265cc; /* 하락 = 파랑 (한국 증시 관례) */
-  --good: #1b7f79;
-  --warn: #e4572e;
+  /* Binance 컨셉: 근검정 캔버스 + 노란 액센트. 상승/하락만 한국 관례(빨강/파랑) 유지 */
+  --canvas: #0b0e11;
+  --surface: #1e2329;
+  --surface-2: #2b3139;
+  --hairline: #2b3139;
+  --body-text: #eaecef;
+  --on-dark: #ffffff;
+  --muted-text: #707a8a;
+  --brand: #fcd535;
+  --on-brand: #181a20;
+  --up: #f6465d; /* 상승 = 빨강 (한국 증시 관례) */
+  --down: #3b82f6; /* 하락 = 파랑 (한국 증시 관례) */
+  --good: #0ecb81;
+  --warn: #ff7a45;
 
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: var(--paper);
-  --card-foreground: var(--ink);
-  --popover: var(--paper);
-  --popover-foreground: var(--ink);
-  --primary: var(--ink);
-  --primary-foreground: var(--paper);
-  --secondary: var(--surface);
-  --secondary-foreground: var(--ink);
-  --muted-foreground: var(--muted);
-  --accent: var(--surface);
-  --accent-foreground: var(--ink);
+  --background: var(--canvas);
+  --foreground: var(--body-text);
+  --card: var(--surface);
+  --card-foreground: var(--body-text);
+  --popover: var(--surface);
+  --popover-foreground: var(--body-text);
+  --primary: var(--brand);
+  --primary-foreground: var(--on-brand);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--on-dark);
+  --muted: var(--surface);
+  --muted-foreground: var(--muted-text);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--body-text);
   --destructive: var(--warn);
-  --input: var(--border);
-  --ring: var(--ink-2);
-  --chart-1: var(--ink);
-  --chart-2: var(--ink-2);
-  --chart-3: var(--up);
-  --chart-4: var(--down);
-  --chart-5: var(--muted);
+  --border: var(--hairline);
+  --input: var(--surface-2);
+  --ring: var(--down);
+  --chart-1: var(--brand);
+  --chart-2: var(--up);
+  --chart-3: var(--down);
+  --chart-4: var(--good);
+  --chart-5: var(--muted-text);
   --radius: 0.375rem;
-  --sidebar: var(--paper);
-  --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--ink);
-  --sidebar-primary-foreground: var(--paper);
-  --sidebar-accent: var(--surface);
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ink-2);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--body-text);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--on-brand);
+  --sidebar-accent: var(--surface-2);
+  --sidebar-accent-foreground: var(--body-text);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--down);
 }
 
 @layer base {
