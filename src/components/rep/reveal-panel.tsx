@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ImmediateFeedback } from "@/components/rep/immediate-feedback";
+import { useHotkeys } from "@/lib/hooks/use-hotkeys";
 import { cn } from "@/lib/utils";
 import type { Rep } from "@/lib/rep/types";
 import type { SetupLabel } from "@/lib/market/scenario";
@@ -32,6 +33,8 @@ export function RevealPanel({
   hideImmediateFeedback,
   nextLabel = "다음 연습",
 }: RevealPanelProps) {
+  useHotkeys({ Enter: onNext });
+
   if (rep.exitReason === "pass") {
     const wasCorrect = rep.setupLabel === "none";
     return (

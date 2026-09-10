@@ -45,7 +45,7 @@ export default function OnboardingPage() {
         ))}
       </div>
 
-      <div className="w-full max-w-2xl px-4">
+      <div className={cn("w-full px-4", step === 4 ? "max-w-4xl" : "max-w-2xl")}>
         {step === 1 && <Step1Why />}
         {step === 2 && (
           <Step2Risk

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BlindChart, type BlindChartHandle } from "@/components/blind-chart";
+import dynamic from "next/dynamic";
+import type { BlindChartHandle } from "@/components/blind-chart";
 import { Button } from "@/components/ui/button";
 import { RepCardForm } from "@/components/rep/rep-card-form";
 import { GradingScreen } from "@/components/rep/grading-screen";
@@ -9,6 +10,10 @@ import { RevealPanel } from "@/components/rep/reveal-panel";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
 import type { DecisionGrade, Plan } from "@/lib/rep/types";
+
+const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
+  ssr: false,
+});
 
 const GUIDE_REPLAY_MS = 350;
 const MAX_REPLAY_CANDLES = 30;

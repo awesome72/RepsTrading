@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BlindChart, type BlindChartHandle } from "@/components/blind-chart";
+import dynamic from "next/dynamic";
+import type { BlindChartHandle } from "@/components/blind-chart";
 import { EntryDecision } from "@/components/rep/entry-decision";
 import { RepCardForm } from "@/components/rep/rep-card-form";
 import { GradingScreen } from "@/components/rep/grading-screen";
@@ -15,13 +16,65 @@ import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
 import { evaluateGate, checkDemotion } from "@/lib/gate/rules";
 import { useUser } from "@/lib/auth/use-user";
+import { useHotkeys } from "@/lib/hooks/use-hotkeys";
 import { apiCommitRep, apiExecuteRep, apiGradeRep, apiRevealRep } from "@/lib/rep/api";
 import type { GateLevel } from "@/lib/gate/types";
 import { cn } from "@/lib/utils";
-import type { DecisionGrade, ExitReason, Plan } from "@/lib/rep/types";
+import type { DecisionGrade, ExitReason, Plan, Rep } from "@/lib/rep/types";
+
+const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
+  ssr: false,
+});
 
 const SPEEDS = [1, 2, 4] as const;
 const MAX_REPLAY_CANDLES = 30;
+const SESSION_KEY = "reps.activeSession.v1";
+
+type PersistedSession = {
+  scenarioSeed: number;
+  repId: string | null;
+  revealCount: number;
+  rep: Rep;
+};
+
+/** 재생 중(COMMITTED/EXECUTED) 새로고침해도 이어서 볼 수 있도록 세션에 남긴다 */
+function persistSession(scenario: Scenario | null, repId: string | null, revealCount: number) {
+  const rep = useRepStore.getState().rep;
+  try {
+    if (!scenario || !rep || rep.state === "WATCHING" || rep.state === "REVEALED") {
+      sessionStorage.removeItem(SESSION_KEY);
+      return;
+    }
+    const payload: PersistedSession = { scenarioSeed: scenario.seed, repId, revealCount, rep };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+  } catch {
+    // sessionStorage 접근 불가 — 복구 기능만 못 쓸 뿐, 연습 자체는 계속된다
+  }
+}
+
+/** 브라우저가 한가할 때 다음 시나리오를 미리 만들어 연습 사이 대기를 없앤다 */
+function scheduleIdle(cb: () => void) {
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    window.requestIdleCallback(cb);
+  } else {
+    setTimeout(cb, 0);
+  }
+}
+
+function tryRestoreSession(): { scenario: Scenario; repId: string | null; revealCount: number; rep: Rep } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedSession;
+    // 채점까지 끝난 rep은 복구 대상이 아니다 (다음 연습으로 넘어가면 그만이다)
+    const resumable = parsed.rep && (parsed.rep.state === "COMMITTED" || parsed.rep.state === "EXECUTED");
+    if (!resumable) return null;
+    const scenario = generateScenario(parsed.scenarioSeed);
+    return { scenario, repId: parsed.repId, revealCount: parsed.revealCount, rep: parsed.rep };
+  } catch {
+    return null;
+  }
+}
 
 export default function PracticePage() {
   const router = useRouter();
@@ -38,6 +91,7 @@ export default function PracticePage() {
   const revealCountRef = useRef(0);
   const exitedRef = useRef(false);
   const repIdRef = useRef<string | null>(null);
+  const nextScenarioRef = useRef<Scenario | null>(null);
 
   const rep = useRepStore((s) => s.rep);
   const logReps = useRepLogStore((s) => s.reps);
@@ -57,9 +111,20 @@ export default function PracticePage() {
     if (!user) return;
     useRepLogStore.getState().hydrate();
     useAccountStore.getState().hydrate();
+
+    const restored = tryRestoreSession();
+    if (restored) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setScenario(restored.scenario);
+      repIdRef.current = restored.repId;
+      revealCountRef.current = restored.revealCount;
+      setRevealCount(restored.revealCount);
+      useRepStore.setState({ rep: restored.rep });
+      return;
+    }
+
     // 매번 랜덤이라 SSR과 절대 일치할 수 없다 — 마운트 후 클라이언트에서만 생성한다.
     const next = generateScenario();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setScenario(next);
     useRepStore
       .getState()
@@ -83,6 +148,7 @@ export default function PracticePage() {
       try {
         await apiExecuteRep(repIdRef.current, params);
         useRepStore.getState().execute(params);
+        persistSession(scenario, repIdRef.current, revealCountRef.current);
       } catch (e) {
         setApiError(
           e instanceof Error
@@ -113,6 +179,7 @@ export default function PracticePage() {
       chartRef.current?.advance([candle]);
       revealCountRef.current = prev + 1;
       setRevealCount(prev + 1);
+      persistSession(scenario, repIdRef.current, prev + 1);
 
       if (candle.low <= plan.stopPrice) {
         exitedRef.current = true;
@@ -146,15 +213,22 @@ export default function PracticePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rep?.state, rep?.plan, scenario, speed]);
 
-  if (userLoading || !user || !scenario || !rep) {
-    return (
-      <div className="flex flex-col gap-4 py-6">
-        <div className="h-[420px] w-full rounded-lg border border-border bg-card" />
-      </div>
-    );
-  }
+  // 채점/결과 확인 중 여유 시간에 다음 연습 시나리오를 미리 만들어둔다
+  useEffect(() => {
+    if (!rep) return;
+    if (
+      (rep.state === "EXECUTED" || rep.state === "GRADED" || rep.state === "REVEALED") &&
+      !nextScenarioRef.current
+    ) {
+      scheduleIdle(() => {
+        nextScenarioRef.current = generateScenario();
+      });
+    }
+    // rep 전체가 아니라 state 변화에만 반응한다 — rep은 매 전이마다 참조가 바뀐다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rep?.state]);
 
-  const entryPrice = scenario.candles[scenario.decisionIndex - 1].close;
+  const entryPrice = scenario ? scenario.candles[scenario.decisionIndex - 1].close : 0;
 
   function checkGateTransition() {
     const level = useAccountStore.getState().gateLevel;
@@ -191,11 +265,11 @@ export default function PracticePage() {
   }
 
   async function handleSavePlan(plan: Plan) {
-    if (!scenario) return;
+    if (!scenario || !rep) return;
     setApiError(null);
     setSaving(true);
     try {
-      const inputSeconds = (Date.now() - rep!.openedAt) / 1000;
+      const inputSeconds = (Date.now() - rep.openedAt) / 1000;
       const created = await apiCommitRep({
         scenarioSeed: scenario.seed,
         planSetup: plan.setupChoice,
@@ -205,6 +279,7 @@ export default function PracticePage() {
       });
       repIdRef.current = created.id;
       useRepStore.getState().commit(plan);
+      persistSession(scenario, created.id, 0);
       setShowForm(false);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "계획 저장에 실패했습니다.");
@@ -231,6 +306,7 @@ export default function PracticePage() {
         exitIndex: idx,
         adhered: false,
       });
+      persistSession(scenario, repIdRef.current, revealCountRef.current);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "청산 처리에 실패했습니다.");
     }
@@ -256,13 +332,20 @@ export default function PracticePage() {
         useRepLogStore.getState().addRep(revealed);
         checkGateTransition();
       }
+      // 채점이 끝났으니 새로고침 복구 대상에서 제외한다
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+      } catch {
+        // ignore
+      }
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "채점 처리에 실패했습니다.");
     }
   }
 
   function handleNext() {
-    const next = generateScenario();
+    const next = nextScenarioRef.current ?? generateScenario();
+    nextScenarioRef.current = null;
     repIdRef.current = null;
     revealCountRef.current = 0;
     exitedRef.current = false;
@@ -270,9 +353,24 @@ export default function PracticePage() {
     setRevealCount(0);
     setShowForm(false);
     setScenario(next);
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      // ignore
+    }
     useRepStore
       .getState()
       .startWatching({ scenarioId: next.id, seed: next.seed, setupLabel: next.setupLabel });
+  }
+
+  useHotkeys({ " ": rep?.state === "COMMITTED" ? handleManualExit : () => {} });
+
+  if (userLoading || !user || !scenario || !rep) {
+    return (
+      <div className="flex flex-col gap-4 py-6">
+        <div className="h-[420px] w-full rounded-lg border border-border bg-card" />
+      </div>
+    );
   }
 
   const showOverlay =
@@ -285,9 +383,23 @@ export default function PracticePage() {
       ? "계획대로 진행되는지 지켜보세요."
       : "이 차트를 보고 판단하세요.";
 
+  const hint =
+    rep.state === "WATCHING" && !showForm
+      ? "단축키: B 산다 · S 지나간다"
+      : rep.state === "WATCHING" && showForm
+        ? "단축키: 1/2/3 셋업 선택 · Enter 저장"
+        : rep.state === "COMMITTED"
+          ? "단축키: Space 지금 판다"
+          : showOverlay && rep.state === "EXECUTED"
+            ? "단축키: A/B/C/D 채점"
+            : "단축키: Enter 다음";
+
   return (
     <div className="flex flex-col gap-4 py-6">
-      <p className="text-[14px] text-muted-foreground">{topText}</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[14px] text-muted-foreground">{topText}</p>
+        <p className="hidden text-[11px] text-muted-foreground/70 sm:block">{hint}</p>
+      </div>
 
       {apiError && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
@@ -304,7 +416,7 @@ export default function PracticePage() {
           />
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4 md:w-[30%]">
+        <div className="sticky bottom-24 z-10 rounded-lg border border-border bg-card p-4 md:static md:bottom-auto md:w-[30%]">
           {rep.state === "WATCHING" && !showForm && (
             <EntryDecision onEnter={handleEnter} onPass={handlePass} />
           )}
@@ -336,7 +448,7 @@ export default function PracticePage() {
                 ))}
               </div>
               <Button variant="outline" className="h-11 w-full" onClick={handleManualExit}>
-                지금 판다
+                지금 판다 <span className="ml-1.5 text-[11px] opacity-60">Space</span>
               </Button>
             </div>
           )}

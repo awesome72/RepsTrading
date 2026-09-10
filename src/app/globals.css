@@ -66,7 +66,7 @@
   --hairline: #2b3139;
   --body-text: #eaecef;
   --on-dark: #ffffff;
-  --muted-text: #707a8a;
+  --muted-text: #96a0ac; /* surface-2 배경 기준 4.5:1 대비를 만족하도록 조정 */
   --brand: #fcd535;
   --on-brand: #181a20;
   --up: #f6465d; /* 상승 = 빨강 (한국 증시 관례) */

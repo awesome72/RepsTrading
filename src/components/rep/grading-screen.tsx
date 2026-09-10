@@ -1,6 +1,7 @@
 "use client";
 
 import { BlindChart } from "@/components/blind-chart";
+import { useHotkeys } from "@/lib/hooks/use-hotkeys";
 import type { Candle } from "@/lib/market/generator";
 import type { DecisionGrade, ExitReason, Plan } from "@/lib/rep/types";
 
@@ -57,6 +58,13 @@ export function GradingScreen({
   onGrade,
   coachMessage,
 }: GradingScreenProps) {
+  useHotkeys({
+    a: () => onGrade("A"),
+    b: () => onGrade("B"),
+    c: () => onGrade("C"),
+    d: () => onGrade("D"),
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background">
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10">
@@ -99,8 +107,11 @@ export function GradingScreen({
               onClick={() => onGrade(opt.value)}
               className="flex flex-col gap-0.5 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary hover:bg-surface-2"
             >
-              <span className="text-[14px] font-semibold text-foreground">
-                {opt.value} — {opt.label}
+              <span className="flex items-center justify-between text-[14px] font-semibold text-foreground">
+                <span>
+                  {opt.value} — {opt.label}
+                </span>
+                <span className="text-[11px] font-normal opacity-50">{opt.value}</span>
               </span>
               <span className="text-[12px] leading-snug text-muted-foreground">
                 {opt.desc}

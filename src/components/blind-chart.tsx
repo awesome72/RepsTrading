@@ -16,7 +16,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle } from "@/lib/market/generator";
-import { smaSeries } from "@/lib/market/indicators";
+import { describeCandles, smaSeries } from "@/lib/market/indicators";
 
 export type BlindChartHandle = {
   /** 다음 n개 봉을 공개한다. 호출 시점 이전에는 이 데이터를 컴포넌트가 갖고 있지 않다. */
@@ -168,7 +168,14 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
           <span className="absolute left-3 top-3 z-10 rounded bg-background/70 px-2 py-1 font-mono text-[11px] text-muted-foreground">
             {label}
           </span>
-          <div ref={containerRef} className="w-full" style={{ height }} />
+          <p className="sr-only">{describeCandles(candles)}</p>
+          <div
+            ref={containerRef}
+            role="img"
+            aria-label={describeCandles(candles)}
+            className="w-full"
+            style={{ height }}
+          />
         </div>
       </div>
     );

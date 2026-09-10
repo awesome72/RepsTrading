@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Term } from "@/components/term";
+import { useHotkeys } from "@/lib/hooks/use-hotkeys";
 import { cn } from "@/lib/utils";
 import type { Plan, SetupChoice } from "@/lib/rep/types";
 
@@ -17,23 +18,28 @@ const SETUP_OPTIONS: {
   label: string;
   termId?: string;
   desc: string;
+  key: string;
 }[] = [
   {
     value: "pullback",
     label: "눌림목",
     termId: "nul-lim-mok",
     desc: "오르던 주식이 잠깐 쉬며 내려온 자리",
+    key: "1",
   },
   {
     value: "breakout",
     label: "돌파",
     termId: "dol-pa",
     desc: "못 넘던 벽을 뚫고 올라가는 자리",
+    key: "2",
   },
-  { value: "other", label: "기타", desc: "위 두 모양에 해당하지 않음" },
+  { value: "other", label: "기타", desc: "위 두 모양에 해당하지 않음", key: "3" },
 ];
 
 const TARGET_PRESETS = [1, 2, 3] as const;
+const STOP_PRESETS = [-2, -3, -5] as const;
+const RISK_WARN_PCT = 5;
 
 function formatWon(n: number): string {
   return Math.round(n).toLocaleString("ko-KR") + "원";
@@ -44,6 +50,7 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
   const [stopInput, setStopInput] = useState("");
   const [targetMode, setTargetMode] = useState<number | "custom" | null>(null);
   const [customTargetInput, setCustomTargetInput] = useState("");
+  const [showRiskWarning, setShowRiskWarning] = useState(false);
 
   const stopPrice = Number(stopInput);
   const hasStop = stopInput.trim() !== "" && !Number.isNaN(stopPrice) && stopPrice > 0;
@@ -71,7 +78,7 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
 
   const canSave = setupChoice !== null && stopValid && targetPrice !== null && targetPrice > entryPrice;
 
-  function handleSave() {
+  function doSave() {
     if (!canSave || !setupChoice || targetPrice === null) return;
     onSave({
       setupChoice,
@@ -80,6 +87,51 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
       targetPrice,
       targetR,
     });
+  }
+
+  function attemptSave() {
+    if (!canSave) return;
+    if (Math.abs(stopPct) > RISK_WARN_PCT) {
+      setShowRiskWarning(true);
+      return;
+    }
+    doSave();
+  }
+
+  useHotkeys({
+    "1": () => setSetupChoice("pullback"),
+    "2": () => setSetupChoice("breakout"),
+    "3": () => setSetupChoice("other"),
+    Enter: attemptSave,
+  });
+
+  function applyStopPreset(pct: number) {
+    setStopInput(String(Math.round(entryPrice * (1 + pct / 100))));
+  }
+
+  if (showRiskWarning) {
+    return (
+      <div className="flex flex-col gap-3 rounded-lg border border-warn/40 bg-warn/10 p-4">
+        <p className="text-[14px] font-semibold text-foreground">
+          손절폭이 {Math.abs(stopPct).toFixed(1)}%로, 계좌 기준 5%를 넘습니다.
+        </p>
+        <p className="text-[12px] leading-relaxed text-muted-foreground">
+          한 번의 손절로 계좌가 크게 흔들릴 수 있습니다. 정말 이대로 저장할까요?
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="h-10 flex-1 text-[13px]"
+            onClick={() => setShowRiskWarning(false)}
+          >
+            다시 정하기
+          </Button>
+          <Button className="h-10 flex-1 text-[13px]" onClick={doSave} disabled={saving}>
+            그래도 저장
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -110,8 +162,9 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
                   : "border-border bg-card hover:bg-surface-2"
               )}
             >
-              <span className="text-[13px] font-semibold text-foreground">
+              <span className="flex items-center justify-between text-[13px] font-semibold text-foreground">
                 {opt.termId ? <Term id={opt.termId}>{opt.label}</Term> : opt.label}
+                <span className="text-[10px] font-normal opacity-50">{opt.key}</span>
               </span>
               <span className="text-[11px] leading-snug text-muted-foreground">
                 {opt.desc}
@@ -133,6 +186,18 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
           placeholder={`현재가 ${formatWon(entryPrice)}보다 낮은 가격`}
           className="num h-10 rounded-md border border-border bg-card px-3 text-[14px] text-foreground outline-none focus:border-primary"
         />
+        <div className="flex gap-1.5">
+          {STOP_PRESETS.map((pct) => (
+            <button
+              key={pct}
+              type="button"
+              onClick={() => applyStopPreset(pct)}
+              className="h-7 flex-1 rounded-md border border-border bg-card text-[12px] font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+            >
+              {pct}%
+            </button>
+          ))}
+        </div>
         {hasStop && !stopValid && (
           <p className="text-[12px] text-destructive">
             손절가는 현재가({formatWon(entryPrice)})보다 낮아야 합니다.
@@ -203,10 +268,11 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
         <Button
           size="lg"
           disabled={!canSave || saving}
-          onClick={handleSave}
+          onClick={attemptSave}
           className="h-12 w-full text-[15px] font-bold"
         >
-          {saving ? "저장 중..." : "계획 저장 (저장 후 수정 불가)"}
+          {saving ? "저장 중..." : "계획 저장 (저장 후 수정 불가)"}{" "}
+          <span className="ml-1.5 text-[11px] font-normal opacity-60">Enter</span>
         </Button>
       </div>
     </div>

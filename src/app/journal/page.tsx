@@ -2,12 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BlindChart } from "@/components/blind-chart";
+import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useUser } from "@/lib/auth/use-user";
 import { apiListReps, type ServerRep } from "@/lib/rep/api";
 import { generateScenario } from "@/lib/market/scenario";
 import type { DecisionGrade, SetupChoice } from "@/lib/rep/types";
 import { cn } from "@/lib/utils";
+
+const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
+  ssr: false,
+});
 
 const SETUP_LABEL: Record<SetupChoice, string> = {
   pullback: "눌림목",
@@ -114,8 +119,14 @@ export default function JournalPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
-          아직 연습 기록이 없습니다. 첫 연습은 2분이면 끝납니다.
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
+          <p>아직 연습 기록이 없습니다. 첫 연습은 2분이면 끝납니다.</p>
+          <Link
+            href="/practice"
+            className="rounded-md bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground"
+          >
+            시작하기
+          </Link>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
