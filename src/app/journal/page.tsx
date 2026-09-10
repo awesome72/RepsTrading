@@ -50,7 +50,7 @@ export default function JournalPage() {
   }, []);
 
   const traded = useMemo(
-    () => reps.filter((r) => r.exitReason !== "pass" && r.result && r.plan),
+    () => reps.filter((r) => r.exitReason !== "pass" && !r.guided && r.result && r.plan),
     [reps]
   );
 

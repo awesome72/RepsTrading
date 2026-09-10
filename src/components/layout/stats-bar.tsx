@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { useRepLogStore } from "@/lib/rep/log-store";
-import { adherenceRate, expectancy, requiredSample } from "@/lib/metrics/stats";
+import { adherenceRate, expectancy, requiredSample, tradedReps } from "@/lib/metrics/stats";
 
 const MIN_SAMPLE = 5;
 
@@ -14,8 +14,7 @@ export function StatsBar() {
     useRepLogStore.getState().hydrate();
   }, []);
 
-  const traded = reps.filter((r) => r.exitReason !== "pass");
-  const n = traded.length;
+  const n = tradedReps(reps).length;
 
   if (n < MIN_SAMPLE) {
     return (

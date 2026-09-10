@@ -28,12 +28,14 @@ export function createRep(params: {
   seed: number;
   setupLabel: SetupLabel;
   openedAt: number;
+  guided?: boolean;
 }): Rep {
   return {
     id: `rep-${params.seed}-${params.openedAt}`,
     scenarioId: params.scenarioId,
     seed: params.seed,
     setupLabel: params.setupLabel,
+    guided: params.guided,
     state: "WATCHING",
     openedAt: params.openedAt,
   };

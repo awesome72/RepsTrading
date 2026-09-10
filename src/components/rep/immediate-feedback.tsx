@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { getFeedback } from "@/lib/feedback/rules";
-import { adherenceRate, requiredSample } from "@/lib/metrics/stats";
+import { adherenceRate, requiredSample, tradedReps } from "@/lib/metrics/stats";
 import type { Rep } from "@/lib/rep/types";
 
 type ImmediateFeedbackProps = {
@@ -37,10 +37,10 @@ export function ImmediateFeedback({ logReps }: ImmediateFeedbackProps) {
   const nStarBefore = requiredSample(before);
   const nStarAfter = requiredSample(logReps);
   const remainingBefore = Number.isFinite(nStarBefore)
-    ? Math.max(0, Math.ceil(nStarBefore - before.filter((r) => r.exitReason !== "pass").length))
+    ? Math.max(0, Math.ceil(nStarBefore - tradedReps(before).length))
     : null;
   const remainingAfter = Number.isFinite(nStarAfter)
-    ? Math.max(0, Math.ceil(nStarAfter - logReps.filter((r) => r.exitReason !== "pass").length))
+    ? Math.max(0, Math.ceil(nStarAfter - tradedReps(logReps).length))
     : null;
 
   const adherenceImproved = adherenceAfter >= adherenceBefore;

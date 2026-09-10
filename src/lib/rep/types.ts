@@ -40,4 +40,6 @@ export type Rep = {
   decisionGrade?: DecisionGrade;
   /** GRADED 미만 상태에서는 반드시 undefined여야 한다 */
   result?: RepResult;
+  /** 온보딩 가이드 연습 — 통계·게이트 판정에서 항상 제외한다 */
+  guided?: boolean;
 };

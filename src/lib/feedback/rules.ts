@@ -9,7 +9,7 @@ export type FeedbackRule = {
 };
 
 function tradedOnly(reps: Rep[]): Rep[] {
-  return reps.filter((r) => r.exitReason !== "pass" && r.result);
+  return reps.filter((r) => r.exitReason !== "pass" && !r.guided && r.result);
 }
 
 function lastN(reps: Rep[], n: number): Rep[] {

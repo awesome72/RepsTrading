@@ -17,13 +17,30 @@ type RevealPanelProps = {
   /** 방금 끝난 rep까지 포함된 전체 기록 (즉시 피드백 계산용) */
   logReps: Rep[];
   onNext: () => void;
+  /** 온보딩 가이드 연습에서 이 화면의 의미를 짚어주는 말풍선 */
+  coachMessage?: string;
+  /** 가이드 연습은 통계에 반영되지 않으므로 "달라진 것" 카드를 보여주지 않는다 */
+  hideImmediateFeedback?: boolean;
+  nextLabel?: string;
 };
 
-export function RevealPanel({ rep, logReps, onNext }: RevealPanelProps) {
+export function RevealPanel({
+  rep,
+  logReps,
+  onNext,
+  coachMessage,
+  hideImmediateFeedback,
+  nextLabel = "다음 연습",
+}: RevealPanelProps) {
   if (rep.exitReason === "pass") {
     const wasCorrect = rep.setupLabel === "none";
     return (
       <div className="flex flex-col gap-4">
+        {coachMessage && (
+          <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+            {coachMessage}
+          </div>
+        )}
         <div
           className={cn(
             "rounded-lg border px-4 py-3 text-[13px] leading-relaxed",
@@ -37,7 +54,7 @@ export function RevealPanel({ rep, logReps, onNext }: RevealPanelProps) {
             : `이 구간은 사실 ${SETUP_KOREAN[rep.setupLabel]} 셋업이었습니다. 지나간 것도 훈련 데이터가 됩니다.`}
         </div>
         <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
-          다음 연습
+          {nextLabel}
         </Button>
       </div>
     );
@@ -50,6 +67,11 @@ export function RevealPanel({ rep, logReps, onNext }: RevealPanelProps) {
 
   return (
     <div className="flex flex-col gap-5">
+      {coachMessage && (
+        <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+          {coachMessage}
+        </div>
+      )}
       <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-6">
         <span className="text-[12px] text-muted-foreground">이번 판단의 결과</span>
         <span
@@ -85,10 +107,10 @@ export function RevealPanel({ rep, logReps, onNext }: RevealPanelProps) {
         </div>
       )}
 
-      <ImmediateFeedback logReps={logReps} />
+      {!hideImmediateFeedback && <ImmediateFeedback logReps={logReps} />}
 
       <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
-        다음 연습
+        {nextLabel}
       </Button>
     </div>
   );

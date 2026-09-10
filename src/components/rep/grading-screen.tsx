@@ -46,12 +46,25 @@ type GradingScreenProps = {
   exitReason: ExitReason;
   candles: Candle[];
   onGrade: (grade: DecisionGrade) => void;
+  /** 온보딩 가이드 연습에서 이 화면의 의미를 짚어주는 말풍선 */
+  coachMessage?: string;
 };
 
-export function GradingScreen({ plan, exitReason, candles, onGrade }: GradingScreenProps) {
+export function GradingScreen({
+  plan,
+  exitReason,
+  candles,
+  onGrade,
+  coachMessage,
+}: GradingScreenProps) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background">
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10">
+        {coachMessage && (
+          <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+            {coachMessage}
+          </div>
+        )}
         <div className="flex flex-col items-center gap-2 text-center">
           <h1 className="text-[26px] font-bold leading-snug text-foreground">
             결과를 보기 전에, 당신의 판단부터 채점합니다.

@@ -1,9 +1,9 @@
 import type { DecisionGrade, Rep, SetupChoice } from "@/lib/rep/types";
 import type { SetupLabel } from "@/lib/market/scenario";
 
-/** 지나간(pass) 기록은 실제 매매가 아니므로 성과 지표에서 제외한다 */
-function tradedReps(reps: Rep[]): Rep[] {
-  return reps.filter((r) => r.exitReason !== "pass" && r.result);
+/** 지나간(pass) 기록과 온보딩 가이드 연습은 실제 성과가 아니므로 지표에서 제외한다 */
+export function tradedReps(reps: Rep[]): Rep[] {
+  return reps.filter((r) => r.exitReason !== "pass" && !r.guided && r.result);
 }
 
 /** 기대값 — R의 평균 */

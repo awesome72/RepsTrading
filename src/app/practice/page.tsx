@@ -7,9 +7,13 @@ import { RepCardForm } from "@/components/rep/rep-card-form";
 import { GradingScreen } from "@/components/rep/grading-screen";
 import { RevealPanel } from "@/components/rep/reveal-panel";
 import { Button } from "@/components/ui/button";
+import { GateTransition } from "@/components/gate/gate-transition";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
 import { useRepLogStore } from "@/lib/rep/log-store";
+import { useAccountStore } from "@/lib/account/store";
+import { evaluateGate, checkDemotion } from "@/lib/gate/rules";
+import type { GateLevel } from "@/lib/gate/types";
 import { cn } from "@/lib/utils";
 import type { DecisionGrade, Plan } from "@/lib/rep/types";
 
@@ -28,9 +32,15 @@ export default function PracticePage() {
 
   const rep = useRepStore((s) => s.rep);
   const logReps = useRepLogStore((s) => s.reps);
+  const [gateTransition, setGateTransition] = useState<{
+    kind: "promotion" | "demotion";
+    from: GateLevel;
+    to: GateLevel;
+  } | null>(null);
 
   useEffect(() => {
     useRepLogStore.getState().hydrate();
+    useAccountStore.getState().hydrate();
     // 매번 랜덤이라 SSR과 절대 일치할 수 없다 — 마운트 후 클라이언트에서만 생성한다.
     const next = generateScenario();
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -111,6 +121,26 @@ export default function PracticePage() {
 
   const entryPrice = scenario.candles[scenario.decisionIndex - 1].close;
 
+  function checkGateTransition() {
+    const level = useAccountStore.getState().gateLevel;
+    const updatedLog = useRepLogStore.getState().reps;
+
+    if (level < 3) {
+      const evaluation = evaluateGate(level, updatedLog);
+      if (evaluation.passed) {
+        const to = (level + 1) as GateLevel;
+        useAccountStore.getState().promote();
+        setGateTransition({ kind: "promotion", from: level, to });
+        return;
+      }
+    }
+    if (level > 1 && checkDemotion(updatedLog)) {
+      const to = (level - 1) as GateLevel;
+      useAccountStore.getState().demote();
+      setGateTransition({ kind: "demotion", from: level, to });
+    }
+  }
+
   function handleEnter() {
     setShowForm(true);
   }
@@ -118,7 +148,10 @@ export default function PracticePage() {
   function handlePass() {
     useRepStore.getState().pass(entryPrice);
     const revealed = useRepStore.getState().rep;
-    if (revealed) useRepLogStore.getState().addRep(revealed);
+    if (revealed) {
+      useRepLogStore.getState().addRep(revealed);
+      checkGateTransition();
+    }
   }
 
   function handleSavePlan(plan: Plan) {
@@ -142,7 +175,10 @@ export default function PracticePage() {
   function handleGrade(grade: DecisionGrade) {
     useRepStore.getState().grade(grade);
     const revealed = useRepStore.getState().rep;
-    if (revealed) useRepLogStore.getState().addRep(revealed);
+    if (revealed) {
+      useRepLogStore.getState().addRep(revealed);
+      checkGateTransition();
+    }
   }
 
   function handleNext() {
@@ -248,6 +284,15 @@ export default function PracticePage() {
             />
           </div>
         </div>
+      )}
+
+      {gateTransition && (
+        <GateTransition
+          kind={gateTransition.kind}
+          fromLevel={gateTransition.from}
+          toLevel={gateTransition.to}
+          onClose={() => setGateTransition(null)}
+        />
       )}
     </div>
   );

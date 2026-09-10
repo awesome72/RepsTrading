@@ -12,7 +12,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { GateProgress } from "@/components/gate/gate-progress";
 import { useRepLogStore } from "@/lib/rep/log-store";
+import { useAccountStore } from "@/lib/account/store";
+import { evaluateGate } from "@/lib/gate/rules";
 import {
   adherenceRate,
   expectancy,
@@ -20,6 +23,7 @@ import {
   luckyBadTrades,
   requiredSample,
   setupAccuracy,
+  tradedReps,
 } from "@/lib/metrics/stats";
 import type { Rep } from "@/lib/rep/types";
 import { cn } from "@/lib/utils";
@@ -32,24 +36,25 @@ function isGoodJudgment(rep: Rep): boolean {
 
 export default function ProgressPage() {
   const reps = useRepLogStore((s) => s.reps);
+  const gateLevel = useAccountStore((s) => s.gateLevel);
 
   useEffect(() => {
     useRepLogStore.getState().hydrate();
+    useAccountStore.getState().hydrate();
   }, []);
 
-  const traded = useMemo(
-    () => reps.filter((r) => r.exitReason !== "pass" && r.result),
-    [reps]
-  );
+  const traded = useMemo(() => tradedReps(reps), [reps]);
   const n = traded.length;
+  const gateEvaluation = useMemo(() => evaluateGate(gateLevel, reps), [gateLevel, reps]);
 
   if (n < MIN_SAMPLE) {
     return (
-      <div className="py-10">
-        <h1 className="mb-4 text-[20px] font-bold text-foreground">진척</h1>
+      <div className="flex flex-col gap-6 py-10">
+        <h1 className="text-[20px] font-bold text-foreground">진척</h1>
         <p className="text-[13px] text-muted-foreground">
           {MIN_SAMPLE}회 이상 연습하면 여기에 통계가 나옵니다. (지금 {n}회)
         </p>
+        <GateProgress evaluation={gateEvaluation} />
       </div>
     );
   }
@@ -92,6 +97,8 @@ export default function ProgressPage() {
         <StatCard label="계획 지킴" value={`${Math.round(adherence * 100)}%`} />
         <StatCard label="판별 정확도" value={`${Math.round(accuracy * 100)}%`} />
       </div>
+
+      <GateProgress evaluation={gateEvaluation} />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-[14px] font-semibold text-foreground">R 누적 곡선</h2>

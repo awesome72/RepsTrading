@@ -9,6 +9,7 @@ type RepStore = {
     scenarioId: string;
     seed: number;
     setupLabel: SetupLabel;
+    guided?: boolean;
   }) => void;
   commit: (plan: Plan) => void;
   execute: (params: {
@@ -25,9 +26,9 @@ type RepStore = {
 export const useRepStore = create<RepStore>((set, get) => ({
   rep: null,
 
-  startWatching: ({ scenarioId, seed, setupLabel }) => {
+  startWatching: ({ scenarioId, seed, setupLabel, guided }) => {
     set({
-      rep: machine.createRep({ scenarioId, seed, setupLabel, openedAt: Date.now() }),
+      rep: machine.createRep({ scenarioId, seed, setupLabel, openedAt: Date.now(), guided }),
     });
   },
 
