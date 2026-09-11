@@ -85,6 +85,18 @@ export async function apiRevealRep(id: string): Promise<ServerRep> {
   return asJson(res);
 }
 
+export async function apiPassRep(params: {
+  scenarioSeed: number;
+  inputSeconds: number;
+}): Promise<ServerRep> {
+  const res = await fetch("/api/reps/pass", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario_seed: params.scenarioSeed, input_seconds: params.inputSeconds }),
+  });
+  return asJson(res);
+}
+
 export async function apiListReps(): Promise<ServerRep[]> {
   const res = await fetch("/api/reps");
   return asJson(res);

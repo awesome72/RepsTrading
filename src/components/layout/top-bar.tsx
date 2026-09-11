@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -12,12 +11,9 @@ const LEVEL_LABEL: Record<number, string> = { 1: "1단계 · 실행", 2: "2단�
 
 export function TopBar() {
   const gateLevel = useAccountStore((s) => s.gateLevel);
+  const serverSynced = useAccountStore((s) => s.serverSynced);
   const { user } = useUser();
   const router = useRouter();
-
-  useEffect(() => {
-    useAccountStore.getState().hydrate();
-  }, []);
 
   async function handleLogout() {
     await createClient().auth.signOut();
@@ -53,9 +49,11 @@ export function TopBar() {
               로그아웃
             </button>
           )}
-          <Badge className="border border-border bg-card font-normal text-foreground">
-            {LEVEL_LABEL[gateLevel] ?? "1단계 · 실행"}
-          </Badge>
+          {user && serverSynced && (
+            <Badge className="border border-border bg-card font-normal text-foreground">
+              {LEVEL_LABEL[gateLevel]}
+            </Badge>
+          )}
         </div>
       </div>
     </header>

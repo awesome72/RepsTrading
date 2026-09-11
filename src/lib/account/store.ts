@@ -1,119 +1,129 @@
 import { create } from "zustand";
 import type { GateLevel } from "@/lib/gate/types";
+import { apiGetAccount, apiSaveAccount, type AccountSettings } from "./api";
 
+/** 로그인 전 온보딩에서 고른 값을 로그인할 때까지 들고 있는 임시 보관소 */
 const STORAGE_KEY = "reps.account.v1";
 
 export type SetupPreference = "pullback" | "breakout" | "both";
 
-export type AccountState = {
-  accountSize: number;
-  riskPercent: number;
-  setupPreference: SetupPreference;
-  onboardingCompleted: boolean;
-  gateLevel: GateLevel;
-  /** 강등이 방금 일어났음을 한 번 안내하기 위한 타임스탬프 */
-  lastDemotedAt: number | null;
+type LocalCache = AccountSettings & {
+  /** 이 기기에서 온보딩을 마친 시각 — 서버 값보다 최신이면 서버에 올린다 */
+  settingsUpdatedAt: number | null;
 };
 
-const DEFAULT_STATE: AccountState = {
+const DEFAULT_CACHE: LocalCache = {
   accountSize: 10_000_000,
   riskPercent: 1,
   setupPreference: "pullback",
   onboardingCompleted: false,
-  gateLevel: 1,
-  lastDemotedAt: null,
+  settingsUpdatedAt: null,
 };
 
-type AccountStore = AccountState & {
+type AccountStore = LocalCache & {
+  /** 게이트 단계는 서버가 판정한 값만 쓴다. 로컬에 따로 저장하지 않는다 */
+  gateLevel: GateLevel;
+  /** 서버에서 게이트 단계를 받아왔는지 — 받기 전에는 단계 표시를 하지 않는다 */
+  serverSynced: boolean;
   hydrated: boolean;
   hydrate: () => void;
   setAccountSize: (n: number) => void;
   setRiskPercent: (n: number) => void;
   setSetupPreference: (p: SetupPreference) => void;
   completeOnboarding: () => void;
-  promote: () => void;
-  demote: (now?: number) => void;
-  acknowledgeDemotion: () => void;
+  syncWithServer: () => Promise<void>;
+  setGateLevel: (level: GateLevel) => void;
+  reset: () => void;
 };
 
-function save(state: AccountState) {
+function pickCache(s: LocalCache): LocalCache {
+  return {
+    accountSize: s.accountSize,
+    riskPercent: s.riskPercent,
+    setupPreference: s.setupPreference,
+    onboardingCompleted: s.onboardingCompleted,
+    settingsUpdatedAt: s.settingsUpdatedAt,
+  };
+}
+
+function pickSettings(s: AccountSettings): AccountSettings {
+  return {
+    accountSize: s.accountSize,
+    riskPercent: s.riskPercent,
+    setupPreference: s.setupPreference,
+    onboardingCompleted: s.onboardingCompleted,
+  };
+}
+
+function save(cache: LocalCache) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   } catch {
     // ignore
   }
 }
 
-export const useAccountStore = create<AccountStore>((set, get) => ({
-  ...DEFAULT_STATE,
-  hydrated: false,
+export const useAccountStore = create<AccountStore>((set, get) => {
+  function update(patch: Partial<LocalCache>) {
+    set(patch);
+    save(pickCache(get()));
+  }
 
-  hydrate: () => {
-    if (get().hydrated) return;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const stored = raw ? (JSON.parse(raw) as AccountState) : DEFAULT_STATE;
-      set({ ...stored, hydrated: true });
-    } catch {
-      set({ hydrated: true });
-    }
-  },
+  return {
+    ...DEFAULT_CACHE,
+    gateLevel: 1,
+    serverSynced: false,
+    hydrated: false,
 
-  setAccountSize: (n) => {
-    set((s) => {
-      const next = { ...s, accountSize: n };
-      save(next);
-      return next;
-    });
-  },
+    hydrate: () => {
+      if (get().hydrated) return;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const stored = raw ? (JSON.parse(raw) as Partial<LocalCache>) : {};
+        set({ ...pickCache({ ...DEFAULT_CACHE, ...stored }), hydrated: true });
+      } catch {
+        set({ hydrated: true });
+      }
+    },
 
-  setRiskPercent: (n) => {
-    set((s) => {
-      const next = { ...s, riskPercent: n };
-      save(next);
-      return next;
-    });
-  },
+    setAccountSize: (n) => update({ accountSize: n }),
+    setRiskPercent: (n) => update({ riskPercent: n }),
+    setSetupPreference: (p) => update({ setupPreference: p }),
 
-  setSetupPreference: (p) => {
-    set((s) => {
-      const next = { ...s, setupPreference: p };
-      save(next);
-      return next;
-    });
-  },
+    completeOnboarding: () => {
+      update({ onboardingCompleted: true, settingsUpdatedAt: Date.now() });
+      // 로그인 전이면 401로 실패한다 — 그 경우 로그인 직후 syncWithServer가 올린다
+      apiSaveAccount(pickSettings(get()))
+        .then(({ updatedAt }) => update({ settingsUpdatedAt: updatedAt }))
+        .catch(() => {});
+    },
 
-  completeOnboarding: () => {
-    set((s) => {
-      const next = { ...s, onboardingCompleted: true };
-      save(next);
-      return next;
-    });
-  },
+    syncWithServer: async () => {
+      get().hydrate();
+      const server = await apiGetAccount();
+      const local = get();
 
-  promote: () => {
-    set((s) => {
-      const nextLevel = (s.gateLevel < 3 ? s.gateLevel + 1 : 3) as GateLevel;
-      const next = { ...s, gateLevel: nextLevel };
-      save(next);
-      return next;
-    });
-  },
+      const localIsNewer =
+        local.onboardingCompleted &&
+        (!server.settings ||
+          (local.settingsUpdatedAt !== null && local.settingsUpdatedAt > server.settings.updatedAt));
 
-  demote: (now = Date.now()) => {
-    set((s) => {
-      const nextLevel = (s.gateLevel > 1 ? s.gateLevel - 1 : 1) as GateLevel;
-      const next = { ...s, gateLevel: nextLevel, lastDemotedAt: now };
-      save(next);
-      return next;
-    });
-  },
+      if (localIsNewer) {
+        const { updatedAt } = await apiSaveAccount(pickSettings(local));
+        update({ settingsUpdatedAt: updatedAt });
+      } else if (server.settings) {
+        update({ ...pickSettings(server.settings), settingsUpdatedAt: server.settings.updatedAt });
+      }
 
-  acknowledgeDemotion: () => {
-    set((s) => {
-      const next = { ...s, lastDemotedAt: null };
-      save(next);
-      return next;
-    });
-  },
-}));
+      set({ gateLevel: server.gateLevel, serverSynced: true });
+    },
+
+    setGateLevel: (level) => set({ gateLevel: level }),
+
+    reset: () => {
+      // 같은 브라우저로 다른 사람이 로그인했을 때 이전 사용자의 설정이 올라가지 않게 비운다
+      set({ ...DEFAULT_CACHE, gateLevel: 1, serverSynced: false });
+      save(DEFAULT_CACHE);
+    },
+  };
+});

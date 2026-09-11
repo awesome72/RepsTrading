@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bar,
@@ -17,7 +17,7 @@ import { GateProgress } from "@/components/gate/gate-progress";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
 import { useUser } from "@/lib/auth/use-user";
-import { apiListReps, serverRepToRep } from "@/lib/rep/api";
+import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
 import { evaluateGate } from "@/lib/gate/rules";
 import {
@@ -41,29 +41,40 @@ function isGoodJudgment(rep: Rep): boolean {
 export default function ProgressPage() {
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
-  const [reps, setReps] = useState<Rep[] | null>(null);
+  const reps = useRepLogStore((s) => s.reps);
+  const status = useRepLogStore((s) => s.status);
   const gateLevel = useAccountStore((s) => s.gateLevel);
+  const gateSynced = useAccountStore((s) => s.serverSynced);
 
   useEffect(() => {
     if (!userLoading && !user) router.replace("/login");
   }, [userLoading, user, router]);
 
+  // 다른 기기에서 연습한 기록까지 반영되도록 들어올 때마다 서버에서 다시 받는다
   useEffect(() => {
-    useAccountStore.getState().hydrate();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    apiListReps()
-      .then((rows) => setReps(rows.map(serverRepToRep)))
-      .catch(() => setReps([]));
+    if (user) useRepLogStore.getState().refresh();
   }, [user]);
 
-  const traded = useMemo(() => tradedReps(reps ?? []), [reps]);
+  const traded = useMemo(() => tradedReps(reps), [reps]);
   const n = traded.length;
-  const gateEvaluation = useMemo(() => evaluateGate(gateLevel, reps ?? []), [gateLevel, reps]);
+  const gateEvaluation = useMemo(() => evaluateGate(gateLevel, reps), [gateLevel, reps]);
 
-  if (userLoading || !user || reps === null) {
+  if (status === "error") {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center text-[13px] text-muted-foreground">
+        <p>기록을 불러오지 못했습니다. 네트워크 연결을 확인해주세요.</p>
+        <button
+          type="button"
+          onClick={() => useRepLogStore.getState().refresh()}
+          className="h-9 rounded-md border border-border bg-card px-4 text-[13px] text-foreground"
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
+  if (userLoading || !user || status !== "ready") {
     return <div className="h-64 py-10" />;
   }
 
@@ -74,7 +85,7 @@ export default function ProgressPage() {
         <p className="text-[13px] text-muted-foreground">
           {MIN_SAMPLE}회 이상 연습하면 여기에 통계가 나옵니다. (지금 {n}회)
         </p>
-        <GateProgress evaluation={gateEvaluation} />
+        {gateSynced && <GateProgress evaluation={gateEvaluation} />}
       </div>
     );
   }
@@ -132,7 +143,7 @@ export default function ProgressPage() {
         />
       </div>
 
-      <GateProgress evaluation={gateEvaluation} />
+      {gateSynced && <GateProgress evaluation={gateEvaluation} />}
 
       <section className="flex flex-col gap-2">
         <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">

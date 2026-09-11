@@ -14,11 +14,18 @@ import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/sc
 import { useRepStore } from "@/lib/rep/store";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
-import { evaluateGate, checkDemotion } from "@/lib/gate/rules";
+import type { GateTransition as GateTransitionData } from "@/lib/gate/rules";
+import { apiEvaluateGate } from "@/lib/account/api";
 import { useUser } from "@/lib/auth/use-user";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
-import { apiCommitRep, apiExecuteRep, apiGradeRep, apiRevealRep } from "@/lib/rep/api";
-import type { GateLevel } from "@/lib/gate/types";
+import {
+  apiCommitRep,
+  apiExecuteRep,
+  apiGradeRep,
+  apiPassRep,
+  apiRevealRep,
+  serverRepToRep,
+} from "@/lib/rep/api";
 import { cn } from "@/lib/utils";
 import type { DecisionGrade, ExitReason, Plan, Rep } from "@/lib/rep/types";
 
@@ -95,11 +102,8 @@ export default function PracticePage() {
 
   const rep = useRepStore((s) => s.rep);
   const logReps = useRepLogStore((s) => s.reps);
-  const [gateTransition, setGateTransition] = useState<{
-    kind: "promotion" | "demotion";
-    from: GateLevel;
-    to: GateLevel;
-  } | null>(null);
+  const logStatus = useRepLogStore((s) => s.status);
+  const [gateTransition, setGateTransition] = useState<GateTransitionData | null>(null);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -109,9 +113,6 @@ export default function PracticePage() {
 
   useEffect(() => {
     if (!user) return;
-    useRepLogStore.getState().hydrate();
-    useAccountStore.getState().hydrate();
-
     const restored = tryRestoreSession();
     if (restored) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -230,23 +231,14 @@ export default function PracticePage() {
 
   const entryPrice = scenario ? scenario.candles[scenario.decisionIndex - 1].close : 0;
 
-  function checkGateTransition() {
-    const level = useAccountStore.getState().gateLevel;
-    const updatedLog = useRepLogStore.getState().reps;
-
-    if (level < 3) {
-      const evaluation = evaluateGate(level, updatedLog);
-      if (evaluation.passed) {
-        const to = (level + 1) as GateLevel;
-        useAccountStore.getState().promote();
-        setGateTransition({ kind: "promotion", from: level, to });
-        return;
-      }
-    }
-    if (level > 1 && checkDemotion(updatedLog)) {
-      const to = (level - 1) as GateLevel;
-      useAccountStore.getState().demote();
-      setGateTransition({ kind: "demotion", from: level, to });
+  /** 승급·강등은 서버가 서버 기록으로 판정한다 — 기기마다 단계가 달라지지 않는다 */
+  async function checkGateTransition() {
+    try {
+      const { gateLevel, transition } = await apiEvaluateGate();
+      useAccountStore.getState().setGateLevel(gateLevel);
+      if (transition) setGateTransition(transition);
+    } catch {
+      // 판정 실패는 연습을 막지 않는다 — 다음 연습이 끝날 때 다시 판정된다
     }
   }
 
@@ -254,13 +246,26 @@ export default function PracticePage() {
     setShowForm(true);
   }
 
-  function handlePass() {
-    // "지나간다"는 R이 항상 0이라 보호할 결과가 없다 — 로컬에서만 기록한다.
+  async function handlePass() {
+    if (!scenario || !rep) return;
+    const inputSeconds = (Date.now() - rep.openedAt) / 1000;
+    // "지나간다"는 R이 항상 0이라 잠글 결과가 없다 — 화면은 즉시 넘기고 저장은 뒤에서 한다.
     useRepStore.getState().pass(entryPrice);
     const revealed = useRepStore.getState().rep;
-    if (revealed) {
-      useRepLogStore.getState().addRep(revealed);
+    if (!revealed) return;
+    useRepLogStore.getState().addRep(revealed);
+
+    try {
+      const saved = await apiPassRep({ scenarioSeed: scenario.seed, inputSeconds });
+      useRepLogStore.getState().replaceRep(revealed.id, serverRepToRep(saved));
       checkGateTransition();
+    } catch (e) {
+      useRepLogStore.getState().removeRep(revealed.id);
+      setApiError(
+        e instanceof Error
+          ? `지나간 기록을 저장하지 못했습니다: ${e.message}`
+          : "지나간 기록을 저장하지 못했습니다."
+      );
     }
   }
 
@@ -313,11 +318,12 @@ export default function PracticePage() {
   }
 
   async function handleGrade(grade: DecisionGrade) {
-    if (!repIdRef.current) return;
+    const repId = repIdRef.current;
+    if (!repId) return;
     setApiError(null);
     try {
-      const graded = await apiGradeRep(repIdRef.current, grade);
-      await apiRevealRep(repIdRef.current);
+      const graded = await apiGradeRep(repId, grade);
+      await apiRevealRep(repId);
 
       useRepStore.getState().grade(grade);
       // 화면에 보이는 R은 서버가 계산한 값을 그대로 쓴다 (클라이언트 재계산에 의존하지 않는다).
@@ -329,7 +335,7 @@ export default function PracticePage() {
 
       const revealed = useRepStore.getState().rep;
       if (revealed) {
-        useRepLogStore.getState().addRep(revealed);
+        useRepLogStore.getState().addRep({ ...revealed, id: repId });
         checkGateTransition();
       }
       // 채점이 끝났으니 새로고침 복구 대상에서 제외한다
@@ -365,7 +371,19 @@ export default function PracticePage() {
 
   useHotkeys({ " ": rep?.state === "COMMITTED" ? handleManualExit : () => {} });
 
-  if (userLoading || !user || !scenario || !rep) {
+  if (logStatus === "error") {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center text-[13px] text-muted-foreground">
+        <p>연습 기록을 불러오지 못했습니다. 네트워크 연결을 확인해주세요.</p>
+        <Button variant="outline" onClick={() => useRepLogStore.getState().refresh()}>
+          다시 시도
+        </Button>
+      </div>
+    );
+  }
+
+  // 기록을 받기 전에 연습을 시작하면 즉시 피드백의 "이전 → 이후" 숫자가 틀리게 나온다
+  if (userLoading || !user || !scenario || !rep || logStatus !== "ready") {
     return (
       <div className="flex flex-col gap-4 py-6">
         <div className="h-[420px] w-full rounded-lg border border-border bg-card" />

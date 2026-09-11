@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
 import { useRepLogStore } from "@/lib/rep/log-store";
@@ -10,10 +9,12 @@ const MIN_SAMPLE = 5;
 
 export function StatsBar() {
   const reps = useRepLogStore((s) => s.reps);
+  const status = useRepLogStore((s) => s.status);
 
-  useEffect(() => {
-    useRepLogStore.getState().hydrate();
-  }, []);
+  // 서버 기록을 받기 전(또는 로그아웃 상태)에는 "0회"처럼 틀린 숫자를 보여주지 않는다
+  if (status !== "ready") {
+    return <div className="h-9 w-full border-b border-border bg-surface-2/50" />;
+  }
 
   const n = tradedReps(reps).length;
 

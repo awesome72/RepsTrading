@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDemotion, evaluateGate, GATE_TARGETS } from "./rules";
+import { checkDemotion, decideGateTransition, evaluateGate, GATE_TARGETS } from "./rules";
 import type { DecisionGrade, Rep } from "@/lib/rep/types";
 
 function fakeRep(params: {
@@ -85,6 +85,38 @@ describe("evaluateGate — G3", () => {
       fakeRep({ i, r: 1, grade: "A", adhered: true })
     );
     expect(evaluateGate(3, reps).passed).toBe(false);
+  });
+});
+
+describe("decideGateTransition", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("G1 조건을 채우면 2단계로 승급한다", () => {
+    const reps = Array.from({ length: GATE_TARGETS[1].count }, (_, i) =>
+      fakeRep({ i, r: 1, grade: "A", adhered: true })
+    );
+    expect(decideGateTransition(1, reps)).toEqual({ kind: "promotion", from: 1, to: 2 });
+  });
+
+  it("조건 미달이고 강등 조건도 아니면 null", () => {
+    const reps = Array.from({ length: 10 }, (_, i) => fakeRep({ i, r: 1, grade: "A", adhered: true }));
+    expect(decideGateTransition(1, reps)).toBeNull();
+  });
+
+  it("1단계에서는 강등하지 않는다", () => {
+    const now = 100 * DAY;
+    const reps = Array.from({ length: 50 }, (_, i) =>
+      fakeRep({ i, r: -1, grade: "D", adhered: false, committedAt: now - 15 * DAY + i * 1000 })
+    );
+    expect(decideGateTransition(1, reps, now)).toBeNull();
+  });
+
+  it("2단계에서 강등 조건을 채우면 1단계로 내려간다", () => {
+    const now = 100 * DAY;
+    const reps = Array.from({ length: 50 }, (_, i) =>
+      fakeRep({ i, r: -1, grade: "D", adhered: false, committedAt: now - 15 * DAY + i * 1000 })
+    );
+    expect(decideGateTransition(2, reps, now)).toEqual({ kind: "demotion", from: 2, to: 1 });
   });
 });
 

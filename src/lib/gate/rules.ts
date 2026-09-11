@@ -133,6 +133,23 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
   return { level, requirements, passed: false };
 }
 
+export type GateTransition = { kind: "promotion" | "demotion"; from: GateLevel; to: GateLevel };
+
+/** rep 1회가 끝난 직후의 승급·강등 결정. 승급 조건을 먼저 보고, 아니면 강등을 본다. */
+export function decideGateTransition(
+  level: GateLevel,
+  reps: Rep[],
+  now: number = Date.now()
+): GateTransition | null {
+  if (level < 3 && evaluateGate(level, reps).passed) {
+    return { kind: "promotion", from: level, to: (level + 1) as GateLevel };
+  }
+  if (level > 1 && checkDemotion(reps, now)) {
+    return { kind: "demotion", from: level, to: (level - 1) as GateLevel };
+  }
+  return null;
+}
+
 /**
  * 강등 판정: 최근 50회 준수율이 85% 미만인 상태가 2주 이상 이어졌는가.
  * "최근 50회의 가장 오래된 기록"이 14일 이상 전이면서 그 구간의 준수율이 기준 미달이면 강등한다.
