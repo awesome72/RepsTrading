@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { RepCardForm } from "@/components/rep/rep-card-form";
 import { GradingScreen } from "@/components/rep/grading-screen";
 import { RevealPanel } from "@/components/rep/reveal-panel";
-import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
+import { generateScenario, pickSeedForMix, visibleCandles, type Scenario } from "@/lib/market/scenario";
+import { useAccountStore } from "@/lib/account/store";
 import { useRepStore } from "@/lib/rep/store";
 import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
 import type { DecisionGrade, Plan } from "@/lib/rep/types";
@@ -28,9 +29,19 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
   const exitedRef = useRef(false);
 
   const rep = useRepStore((s) => s.rep);
+  const accountSize = useAccountStore((s) => s.accountSize);
+  const riskPercent = useAccountStore((s) => s.riskPercent);
 
   useEffect(() => {
-    const next = generateScenario();
+    // 첫 연습은 방금 고른 셋업 모양으로 보여준다 (둘 다면 두 셋업 중 하나)
+    const preference = useAccountStore.getState().setupPreference;
+    const mix =
+      preference === "pullback"
+        ? { pullback: 1, breakout: 0, none: 0 }
+        : preference === "breakout"
+          ? { pullback: 0, breakout: 1, none: 0 }
+          : { pullback: 0.5, breakout: 0.5, none: 0 };
+    const next = generateScenario(pickSeedForMix(mix));
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setScenario(next);
     useRepStore.getState().startWatching({
@@ -140,7 +151,12 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
           )}
 
           {rep.state === "WATCHING" && showForm && (
-            <RepCardForm entryPrice={entryPrice} onSave={handleSavePlan} />
+            <RepCardForm
+              entryPrice={entryPrice}
+              accountSize={accountSize}
+              riskPercent={riskPercent}
+              onSave={handleSavePlan}
+            />
           )}
 
           {rep.state === "COMMITTED" && (

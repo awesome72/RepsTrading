@@ -198,6 +198,43 @@ export function generateScenario(seed?: number): Scenario {
   };
 }
 
+/** seed만으로 정답 셋업을 알아낸다 — generateScenario의 첫 난수와 같은 값이라 차트 전체를 만들 필요가 없다 */
+export function setupLabelForSeed(seed: number): SetupLabel {
+  return pickSetupLabel(createRng(seed));
+}
+
+/** 어떤 셋업을 얼마나 자주 낼지 (합이 1) */
+export type SetupMix = Record<SetupLabel, number>;
+
+export const FULL_MIX: SetupMix = { pullback: 0.35, breakout: 0.35, none: 0.3 };
+
+/**
+ * 1단계(실행)는 고른 셋업 하나를 반복하는 단계라 그 셋업과 "셋업 없음"만 낸다.
+ * 다른 셋업 차트를 섞으면, 자기 셋업만 사고 나머지는 지나가는 올바른 습관이 오답 처리되기 때문이다.
+ * 2단계(판별)부터는 모든 셋업을 섞는다.
+ */
+export function setupMixFor(preference: "pullback" | "breakout" | "both", gateLevel: number): SetupMix {
+  if (gateLevel >= 2 || preference === "both") return FULL_MIX;
+  return preference === "pullback"
+    ? { pullback: 0.7, breakout: 0, none: 0.3 }
+    : { pullback: 0, breakout: 0.7, none: 0.3 };
+}
+
+/**
+ * 원하는 비율대로 셋업이 나오도록 seed를 고른다.
+ * 차트 자체는 여전히 seed 하나로 결정되므로, 서버가 seed로 다시 만들어 검증하는 구조는 그대로다.
+ */
+export function pickSeedForMix(mix: SetupMix, random: () => number = Math.random): number {
+  const roll = random();
+  const target: SetupLabel =
+    roll < mix.pullback ? "pullback" : roll < mix.pullback + mix.breakout ? "breakout" : "none";
+  for (let i = 0; i < 1000; i++) {
+    const seed = Math.floor(random() * 1_000_000_000);
+    if (setupLabelForSeed(seed) === target) return seed;
+  }
+  return Math.floor(random() * 1_000_000_000);
+}
+
 /** BlindChart에 넘길 데이터: decisionIndex 이후 봉은 아예 포함하지 않는다 */
 export function visibleCandles(scenario: Scenario, revealCount = 0): Candle[] {
   return scenario.candles.slice(0, scenario.decisionIndex + revealCount);

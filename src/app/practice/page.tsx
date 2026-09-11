@@ -9,7 +9,13 @@ import { GradingScreen } from "@/components/rep/grading-screen";
 import { RevealPanel } from "@/components/rep/reveal-panel";
 import { Button } from "@/components/ui/button";
 import { GateTransition } from "@/components/gate/gate-transition";
-import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
+import {
+  generateScenario,
+  pickSeedForMix,
+  setupMixFor,
+  visibleCandles,
+  type Scenario,
+} from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
 import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
 import { GUEST_REP_LIMIT, useRepLogStore } from "@/lib/rep/log-store";
@@ -69,6 +75,12 @@ function scheduleIdle(cb: () => void) {
   }
 }
 
+/** 지금 단계와 온보딩에서 고른 셋업에 맞는 차트를 만든다 (1단계는 고른 셋업 + 셋업 없음만) */
+function newScenario(): Scenario {
+  const { setupPreference, gateLevel } = useAccountStore.getState();
+  return generateScenario(pickSeedForMix(setupMixFor(setupPreference, gateLevel)));
+}
+
 function tryRestoreSession(): { scenario: Scenario; repId: string | null; revealCount: number; rep: Rep } | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
@@ -112,9 +124,16 @@ export default function PracticePage() {
   const logReady = logStatus === "ready" && logMode === (user ? "server" : "guest");
   // 토큰 갱신 때마다 user 객체가 새로 오므로, 연습을 새로 시작하는 기준은 id로만 삼는다
   const userId = user?.id ?? null;
+  const accountSize = useAccountStore((s) => s.accountSize);
+  const riskPercent = useAccountStore((s) => s.riskPercent);
+  const setupPreference = useAccountStore((s) => s.setupPreference);
+  const gateLevel = useAccountStore((s) => s.gateLevel);
+  // 첫 차트의 셋업 비율도 서버에서 받은 단계·셋업으로 정해야 한다 (동기화 실패 시엔 로컬 설정으로 진행)
+  const accountReady = useAccountStore((s) => (userId ? s.serverSynced || s.syncFailed : s.hydrated));
+  const focusSetup = gateLevel === 1 && setupPreference !== "both" ? setupPreference : undefined;
 
   useEffect(() => {
-    if (userLoading) return;
+    if (userLoading || !accountReady) return;
     const restored = tryRestoreSession();
     // 게스트 연습(서버 id 없음)은 게스트로, 계정 연습은 로그인 상태로만 이어간다 — 섞이면 청산을 기록할 곳이 없다
     if (restored && (restored.repId === null) === (userId === null)) {
@@ -128,12 +147,12 @@ export default function PracticePage() {
     }
 
     // 매번 랜덤이라 SSR과 절대 일치할 수 없다 — 마운트 후 클라이언트에서만 생성한다.
-    const next = generateScenario();
+    const next = newScenario();
     setScenario(next);
     useRepStore
       .getState()
       .startWatching({ scenarioId: next.id, seed: next.seed, setupLabel: next.setupLabel });
-  }, [userLoading, userId]);
+  }, [userLoading, userId, accountReady]);
 
   // 계획 저장 후 재생: 봉을 하나씩 공개하며 손절/목표/시간초과를 감시한다
   useEffect(() => {
@@ -190,7 +209,7 @@ export default function PracticePage() {
       !nextScenarioRef.current
     ) {
       scheduleIdle(() => {
-        nextScenarioRef.current = generateScenario();
+        nextScenarioRef.current = newScenario();
       });
     }
     // rep 전체가 아니라 state 변화에만 반응한다 — rep은 매 전이마다 참조가 바뀐다.
@@ -205,7 +224,11 @@ export default function PracticePage() {
     try {
       const { gateLevel, transition } = await apiEvaluateGate();
       useAccountStore.getState().setGateLevel(gateLevel);
-      if (transition) setGateTransition(transition);
+      if (transition) {
+        // 단계가 바뀌면 셋업 비율도 바뀌므로 미리 만들어 둔 다음 차트는 버린다
+        nextScenarioRef.current = null;
+        setGateTransition(transition);
+      }
     } catch {
       // 판정 실패는 연습을 막지 않는다 — 다음 연습이 끝날 때 다시 판정된다
     }
@@ -354,7 +377,7 @@ export default function PracticePage() {
   }
 
   function handleNext() {
-    const next = nextScenarioRef.current ?? generateScenario();
+    const next = nextScenarioRef.current ?? newScenario();
     nextScenarioRef.current = null;
     repIdRef.current = null;
     revealCountRef.current = 0;
@@ -484,11 +507,17 @@ export default function PracticePage() {
 
         <div className="sticky bottom-24 z-10 rounded-lg border border-border bg-card p-4 md:static md:bottom-auto md:w-[30%]">
           {rep.state === "WATCHING" && !showForm && (
-            <EntryDecision onEnter={handleEnter} onPass={handlePass} />
+            <EntryDecision onEnter={handleEnter} onPass={handlePass} focusSetup={focusSetup} />
           )}
 
           {rep.state === "WATCHING" && showForm && (
-            <RepCardForm entryPrice={entryPrice} onSave={handleSavePlan} saving={saving} />
+            <RepCardForm
+              entryPrice={entryPrice}
+              accountSize={accountSize}
+              riskPercent={riskPercent}
+              onSave={handleSavePlan}
+              saving={saving}
+            />
           )}
 
           {rep.state === "COMMITTED" && (

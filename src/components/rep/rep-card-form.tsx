@@ -4,11 +4,15 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Term } from "@/components/term";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
+import { positionSize } from "@/lib/metrics/position";
 import { cn } from "@/lib/utils";
 import type { Plan, SetupChoice } from "@/lib/rep/types";
 
 type RepCardFormProps = {
   entryPrice: number;
+  /** 온보딩에서 정한 계좌 금액과 한 번에 걸 위험 비율 — 1R 금액과 살 수량을 계산한다 */
+  accountSize: number;
+  riskPercent: number;
   onSave: (plan: Plan) => void;
   saving?: boolean;
 };
@@ -45,7 +49,7 @@ function formatWon(n: number): string {
   return Math.round(n).toLocaleString("ko-KR") + "원";
 }
 
-export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
+export function RepCardForm({ entryPrice, accountSize, riskPercent, onSave, saving }: RepCardFormProps) {
   const [setupChoice, setSetupChoice] = useState<SetupChoice | null>(null);
   const [stopInput, setStopInput] = useState("");
   const [targetMode, setTargetMode] = useState<number | "custom" | null>(null);
@@ -58,6 +62,8 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
 
   const riskPerShare = stopValid ? entryPrice - stopPrice : 0;
   const stopPct = hasStop ? ((stopPrice - entryPrice) / entryPrice) * 100 : 0;
+  // 온보딩에서 정한 계좌·위험 비율로, 손절 시 손실이 1R이 되도록 수량을 정한다
+  const position = stopValid ? positionSize({ accountSize, riskPercent, entryPrice, stopPrice }) : null;
 
   const targetPrice = useMemo(() => {
     if (!stopValid) return null;
@@ -113,10 +119,11 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
     return (
       <div className="flex flex-col gap-3 rounded-lg border border-warn/40 bg-warn/10 p-4">
         <p className="text-[14px] font-semibold text-foreground">
-          손절폭이 {Math.abs(stopPct).toFixed(1)}%로, 계좌 기준 5%를 넘습니다.
+          손절폭이 현재가의 {Math.abs(stopPct).toFixed(1)}%로, 5%보다 넓습니다.
         </p>
         <p className="text-[12px] leading-relaxed text-muted-foreground">
-          한 번의 손절로 계좌가 크게 흔들릴 수 있습니다. 정말 이대로 저장할까요?
+          손절이 멀면 1R을 지키기 위해 살 수 있는 수량이 줄고, 틀렸다는 걸 확인하기까지 오래 걸립니다.
+          정말 이대로 저장할까요?
         </p>
         <div className="flex gap-2">
           <Button
@@ -206,8 +213,26 @@ export function RepCardForm({ entryPrice, onSave, saving }: RepCardFormProps) {
         {stopValid && (
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             현재가 대비 {stopPct.toFixed(1)}%입니다. 이만큼 내려가면 자동으로 팝니다.
-            <br />이 금액이 당신의 <Term id="r-multiple">1R</Term> ={" "}
-            <span className="num text-foreground">{formatWon(riskPerShare)}</span>입니다.
+            <br />
+            1주당 <span className="num text-foreground">{formatWon(riskPerShare)}</span>을 잃는
+            계획입니다.
+            {position && position.shares > 0 && (
+              <>
+                {" "}
+                당신의 <Term id="r-multiple">1R</Term>(
+                <span className="num text-foreground">{formatWon(position.riskAmount)}</span>, 계좌의{" "}
+                {riskPercent}%)을 지키려면{" "}
+                <span className="num font-semibold text-foreground">{position.shares.toLocaleString("ko-KR")}주</span>
+                를 삽니다.
+                {position.cappedByAccount && " (계좌 금액 한도라 이보다 더 살 수 없어서, 손절 시 손실은 1R보다 작습니다.)"}
+              </>
+            )}
+            {position && position.shares === 0 && (
+              <span className="text-warn">
+                {" "}
+                손절폭이 넓어서 1R({formatWon(position.riskAmount)}) 안에서는 1주도 살 수 없습니다.
+              </span>
+            )}
           </p>
         )}
       </div>

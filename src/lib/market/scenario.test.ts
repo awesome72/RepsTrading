@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { generateScenario, visibleCandles, DECISION_INDEX, TOTAL_LENGTH } from "./scenario";
+import {
+  generateScenario,
+  pickSeedForMix,
+  setupLabelForSeed,
+  setupMixFor,
+  visibleCandles,
+  DECISION_INDEX,
+  TOTAL_LENGTH,
+} from "./scenario";
 
 describe("generateScenario", () => {
   it("같은 seed는 같은 시나리오를 낸다", () => {
@@ -50,5 +58,26 @@ describe("visibleCandles", () => {
     const s = generateScenario(9);
     const visible = visibleCandles(s, 5);
     expect(visible).toHaveLength(s.decisionIndex + 5);
+  });
+});
+
+describe("셋업 비율에 맞춘 seed 고르기", () => {
+  it("setupLabelForSeed는 generateScenario의 정답과 항상 같다", () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      expect(setupLabelForSeed(seed)).toBe(generateScenario(seed).setupLabel);
+    }
+  });
+
+  it("1단계·눌림목이면 눌림목과 셋업 없음만 약 7:3으로 나온다", () => {
+    const mix = setupMixFor("pullback", 1);
+    const counts = { pullback: 0, breakout: 0, none: 0 };
+    for (let i = 0; i < 400; i++) counts[setupLabelForSeed(pickSeedForMix(mix))]++;
+    expect(counts.breakout).toBe(0);
+    expect(counts.pullback / 400).toBeGreaterThan(0.6);
+    expect(counts.pullback / 400).toBeLessThan(0.8);
+  });
+
+  it("2단계부터는 셋업 선호와 무관하게 전부 섞는다", () => {
+    expect(setupMixFor("pullback", 2)).toEqual({ pullback: 0.35, breakout: 0.35, none: 0.3 });
   });
 });

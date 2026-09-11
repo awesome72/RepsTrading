@@ -82,6 +82,8 @@ export function SessionSync() {
     }
     if (!id) {
       useRepLogStore.getState().loadGuest();
+      // 게스트는 온보딩에서 고른 계좌·셋업 설정을 이 브라우저에서 읽어 연습에 쓴다
+      useAccountStore.getState().hydrate();
       return;
     }
 

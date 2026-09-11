@@ -25,6 +25,8 @@ type AccountStore = LocalCache & {
   gateLevel: GateLevel;
   /** 서버에서 게이트 단계를 받아왔는지 — 받기 전에는 단계 표시를 하지 않는다 */
   serverSynced: boolean;
+  /** 서버 동기화가 실패했는가 — 실패해도 연습은 로컬 설정으로 계속할 수 있어야 한다 */
+  syncFailed: boolean;
   hydrated: boolean;
   hydrate: () => void;
   setAccountSize: (n: number) => void;
@@ -73,6 +75,7 @@ export const useAccountStore = create<AccountStore>((set, get) => {
     ...DEFAULT_CACHE,
     gateLevel: 1,
     serverSynced: false,
+    syncFailed: false,
     hydrated: false,
 
     hydrate: () => {
@@ -100,29 +103,35 @@ export const useAccountStore = create<AccountStore>((set, get) => {
 
     syncWithServer: async () => {
       get().hydrate();
-      const server = await apiGetAccount();
-      const local = get();
+      set({ syncFailed: false });
+      try {
+        const server = await apiGetAccount();
+        const local = get();
 
-      const localIsNewer =
-        local.onboardingCompleted &&
-        (!server.settings ||
-          (local.settingsUpdatedAt !== null && local.settingsUpdatedAt > server.settings.updatedAt));
+        const localIsNewer =
+          local.onboardingCompleted &&
+          (!server.settings ||
+            (local.settingsUpdatedAt !== null && local.settingsUpdatedAt > server.settings.updatedAt));
 
-      if (localIsNewer) {
-        const { updatedAt } = await apiSaveAccount(pickSettings(local));
-        update({ settingsUpdatedAt: updatedAt });
-      } else if (server.settings) {
-        update({ ...pickSettings(server.settings), settingsUpdatedAt: server.settings.updatedAt });
+        if (localIsNewer) {
+          const { updatedAt } = await apiSaveAccount(pickSettings(local));
+          update({ settingsUpdatedAt: updatedAt });
+        } else if (server.settings) {
+          update({ ...pickSettings(server.settings), settingsUpdatedAt: server.settings.updatedAt });
+        }
+
+        set({ gateLevel: server.gateLevel, serverSynced: true });
+      } catch (e) {
+        set({ syncFailed: true });
+        throw e;
       }
-
-      set({ gateLevel: server.gateLevel, serverSynced: true });
     },
 
     setGateLevel: (level) => set({ gateLevel: level }),
 
     reset: () => {
       // 같은 브라우저로 다른 사람이 로그인했을 때 이전 사용자의 설정이 올라가지 않게 비운다
-      set({ ...DEFAULT_CACHE, gateLevel: 1, serverSynced: false });
+      set({ ...DEFAULT_CACHE, gateLevel: 1, serverSynced: false, syncFailed: false });
       save(DEFAULT_CACHE);
     },
   };
