@@ -8,11 +8,16 @@ import {
 } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   CandlestickSeries,
   HistogramSeries,
   LineSeries,
+  LineStyle,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle } from "@/lib/market/generator";
@@ -21,6 +26,18 @@ import { describeCandles, smaSeries } from "@/lib/market/indicators";
 export type BlindChartHandle = {
   /** 다음 n개 봉을 공개한다. 호출 시점 이전에는 이 데이터를 컴포넌트가 갖고 있지 않다. */
   advance: (nextCandles: Candle[]) => void;
+};
+
+type Tone = "up" | "down" | "neutral";
+
+export type ChartPriceLine = { price: number; label: string; tone: Tone };
+
+export type ChartMarker = {
+  time: number;
+  label: string;
+  position: "aboveBar" | "belowBar";
+  shape: "arrowUp" | "arrowDown" | "circle";
+  tone: Tone;
 };
 
 type BlindChartProps = {
@@ -32,11 +49,21 @@ type BlindChartProps = {
   /** 채점 화면용: 가격 축 라벨과 마지막 가격 표시를 숨겨 손익을 유추하지 못하게 한다 */
   hidePriceLabels?: boolean;
   height?: number;
+  /** 결과 공개 이후에만 쓴다: 진입·손절·목표 가로선 */
+  priceLines?: ChartPriceLine[];
+  /** 결과 공개 이후에만 쓴다: 진입·청산 지점 표시 */
+  markers?: ChartMarker[];
 };
 
 function cssVar(name: string): string {
   if (typeof window === "undefined") return "#000000";
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function toneColor(tone: Tone): string {
+  if (tone === "up") return cssVar("--up") || "#F6465D";
+  if (tone === "down") return cssVar("--down") || "#3B82F6";
+  return cssVar("--body-text") || "#EAECEF";
 }
 
 function toChartCandle(c: Candle) {
@@ -50,12 +77,17 @@ function toChartCandle(c: Candle) {
 }
 
 export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
-  function BlindChart({ candles, label, className, hidePriceLabels, height = 420 }, ref) {
+  function BlindChart(
+    { candles, label, className, hidePriceLabels, height = 420, priceLines, markers },
+    ref
+  ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
     const maSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const priceLineRefs = useRef<IPriceLine[]>([]);
+    const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
     const dataRef = useRef<Candle[]>(candles);
 
     useEffect(() => {
@@ -122,6 +154,8 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
       return () => {
         chart.remove();
         chartRef.current = null;
+        priceLineRefs.current = [];
+        markersRef.current = null;
       };
       // hidePriceLabels는 인스턴스 생성 시 한 번만 적용한다 (채점 화면은 별도 인스턴스로 마운트됨)
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,6 +188,36 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
       dataRef.current = candles;
       render(candles);
     }, [candles]);
+
+    // 배열 참조가 매 렌더마다 바뀌어도 내용이 같으면 다시 그리지 않는다
+    const overlayKey = JSON.stringify({ priceLines, markers });
+    useEffect(() => {
+      const series = candleSeriesRef.current;
+      if (!series) return;
+
+      priceLineRefs.current.forEach((line) => series.removePriceLine(line));
+      priceLineRefs.current = (priceLines ?? []).map((line) =>
+        series.createPriceLine({
+          price: line.price,
+          color: toneColor(line.tone),
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: line.label,
+        })
+      );
+
+      const seriesMarkers = (markers ?? []).map((m) => ({
+        time: m.time as UTCTimestamp,
+        position: m.position,
+        shape: m.shape,
+        color: toneColor(m.tone),
+        text: m.label,
+      }));
+      if (markersRef.current) markersRef.current.setMarkers(seriesMarkers);
+      else if (seriesMarkers.length > 0) markersRef.current = createSeriesMarkers(series, seriesMarkers);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [overlayKey]);
 
     useImperativeHandle(ref, () => ({
       advance(nextCandles: Candle[]) {

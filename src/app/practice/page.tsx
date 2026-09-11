@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { GateTransition } from "@/components/gate/gate-transition";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
+import { checkPlanExit, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
 import type { GateTransition as GateTransitionData } from "@/lib/gate/rules";
@@ -34,7 +35,6 @@ const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => 
 });
 
 const SPEEDS = [1, 2, 4] as const;
-const MAX_REPLAY_CANDLES = 30;
 const SESSION_KEY = "reps.activeSession.v1";
 
 type PersistedSession = {
@@ -182,22 +182,10 @@ export default function PracticePage() {
       setRevealCount(prev + 1);
       persistSession(scenario, repIdRef.current, prev + 1);
 
-      if (candle.low <= plan.stopPrice) {
+      const hit = checkPlanExit(candle, plan);
+      if (hit) {
         exitedRef.current = true;
-        finishExit({
-          exitPrice: plan.stopPrice,
-          exitReason: "stop",
-          exitIndex: nextIndex,
-          adhered: true,
-        });
-      } else if (candle.high >= plan.targetPrice) {
-        exitedRef.current = true;
-        finishExit({
-          exitPrice: plan.targetPrice,
-          exitReason: "target",
-          exitIndex: nextIndex,
-          adhered: true,
-        });
+        finishExit({ ...hit, exitIndex: nextIndex, adhered: true });
       } else if (prev + 1 >= MAX_REPLAY_CANDLES) {
         exitedRef.current = true;
         finishExit({
@@ -395,11 +383,16 @@ export default function PracticePage() {
     rep.exitReason !== "pass" &&
     (rep.state === "EXECUTED" || rep.state === "GRADED" || rep.state === "REVEALED");
 
+  // 지나가기는 결과를 잠글 게 없으므로 결정 직후 이후 움직임을 바로 펼쳐 보여준다
+  const passRevealed = rep.exitReason === "pass" && rep.state === "REVEALED";
+
   const topText = showForm
     ? "사기 전에 계획을 적으세요."
     : rep.state === "COMMITTED"
       ? "계획대로 진행되는지 지켜보세요."
-      : "이 차트를 보고 판단하세요.";
+      : passRevealed
+        ? "지나간 뒤 이렇게 움직였습니다."
+        : "이 차트를 보고 판단하세요.";
 
   const hint =
     rep.state === "WATCHING" && !showForm
@@ -429,8 +422,21 @@ export default function PracticePage() {
         <div className="md:w-[70%]">
           <BlindChart
             ref={chartRef}
-            candles={visibleCandles(scenario, revealCount)}
+            candles={visibleCandles(scenario, passRevealed ? MAX_REPLAY_CANDLES : revealCount)}
             label={`연습 #${scenario.seed.toString(16).slice(-4).toUpperCase()}`}
+            markers={
+              passRevealed
+                ? [
+                    {
+                      time: scenario.candles[scenario.decisionIndex - 1].time,
+                      label: "지나감",
+                      position: "aboveBar",
+                      shape: "circle",
+                      tone: "neutral",
+                    },
+                  ]
+                : undefined
+            }
           />
         </div>
 
@@ -471,9 +477,10 @@ export default function PracticePage() {
             </div>
           )}
 
-          {rep.exitReason === "pass" && rep.state === "REVEALED" && (
+          {passRevealed && (
             <RevealPanel
               rep={rep as typeof rep & { result: NonNullable<typeof rep.result> }}
+              scenario={scenario}
               logReps={logReps}
               onNext={handleNext}
             />
@@ -495,9 +502,10 @@ export default function PracticePage() {
 
       {showOverlay && (rep.state === "GRADED" || rep.state === "REVEALED") && rep.result && (
         <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background">
-          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
+          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-10">
             <RevealPanel
               rep={rep as typeof rep & { result: NonNullable<typeof rep.result> }}
+              scenario={scenario}
               logReps={logReps}
               onNext={handleNext}
             />

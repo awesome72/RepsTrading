@@ -9,6 +9,7 @@ import { GradingScreen } from "@/components/rep/grading-screen";
 import { RevealPanel } from "@/components/rep/reveal-panel";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
+import { checkPlanExit, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
 import type { DecisionGrade, Plan } from "@/lib/rep/types";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
@@ -16,7 +17,6 @@ const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => 
 });
 
 const GUIDE_REPLAY_MS = 350;
-const MAX_REPLAY_CANDLES = 30;
 
 export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
@@ -68,22 +68,10 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
       revealCountRef.current = prev + 1;
       setRevealCount(prev + 1);
 
-      if (candle.low <= plan.stopPrice) {
+      const hit = checkPlanExit(candle, plan);
+      if (hit) {
         exitedRef.current = true;
-        useRepStore.getState().execute({
-          exitPrice: plan.stopPrice,
-          exitReason: "stop",
-          exitIndex: nextIndex,
-          adhered: true,
-        });
-      } else if (candle.high >= plan.targetPrice) {
-        exitedRef.current = true;
-        useRepStore.getState().execute({
-          exitPrice: plan.targetPrice,
-          exitReason: "target",
-          exitIndex: nextIndex,
-          adhered: true,
-        });
+        useRepStore.getState().execute({ ...hit, exitIndex: nextIndex, adhered: true });
       } else if (prev + 1 >= MAX_REPLAY_CANDLES) {
         exitedRef.current = true;
         useRepStore.getState().execute({
@@ -178,9 +166,10 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
 
       {showOverlay && (rep.state === "GRADED" || rep.state === "REVEALED") && rep.result && (
         <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background">
-          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
+          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-10">
             <RevealPanel
               rep={rep as typeof rep & { result: NonNullable<typeof rep.result> }}
+              scenario={scenario}
               logReps={[]}
               onNext={onComplete}
               coachMessage="⑤ 이제 결과입니다. 이 가이드 연습은 통계에 포함되지 않습니다."
