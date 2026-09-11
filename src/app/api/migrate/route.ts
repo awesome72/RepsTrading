@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { computeCommitHash } from "@/lib/rep/server-guard";
+import { toMigrationRow, type MigrationRow } from "@/lib/rep/migration";
 import type { Rep } from "@/lib/rep/types";
 
+const MAX_REPS_PER_REQUEST = 2000;
+
 /**
- * localStorage에 있던 기존 연습 기록을 서버로 옮긴다.
+ * 브라우저에만 있던 연습 기록(게스트 연습·예전 로컬 기록)을 서버로 옮긴다.
+ * 결과·준수 여부·등급은 서버가 seed와 청산 기록으로 다시 계산하고, 검증에 실패한 기록은 건너뛴다.
  * (user_id, scenario_seed, committed_at) unique 제약 + upsert로 재시도해도 중복이 생기지 않는다.
  * 실패해도 로컬 데이터는 절대 지우지 않는다 — 그건 호출하는 쪽(클라이언트)의 책임이다.
  */
@@ -21,37 +24,19 @@ export async function POST(request: Request) {
   if (!Array.isArray(reps) || reps.length === 0) {
     return NextResponse.json({ migrated: 0, skipped: 0 });
   }
+  if (reps.length > MAX_REPS_PER_REQUEST) {
+    return NextResponse.json({ error: "한 번에 옮길 수 있는 기록 수를 넘었습니다." }, { status: 413 });
+  }
 
   const rows = reps
-    .filter((r) => r.plan && r.result && r.committedAt)
     .map((r) => {
-      const committedAt = new Date(r.committedAt!).toISOString();
-      return {
-        user_id: user.id,
-        setup_id: r.plan!.setupChoice,
-        scenario_seed: r.seed,
-        state: "REVEALED" as const,
-        committed_at: committedAt,
-        commit_hash: computeCommitHash({
-          userId: user.id,
-          scenarioSeed: r.seed,
-          planSetup: r.plan!.setupChoice,
-          planStop: r.plan!.stopPrice,
-          planTargetR: r.plan!.targetR,
-          committedAt,
-        }),
-        plan_setup: r.plan!.setupChoice,
-        plan_stop: r.plan!.stopPrice,
-        plan_target_r: r.plan!.targetR,
-        exit_price: r.result!.exitPrice,
-        exit_reason: r.exitReason ?? null,
-        exit_index: r.exitIndex ?? null,
-        adhered: r.adhered ?? null,
-        decision_grade: r.decisionGrade ?? null,
-        r_result: r.result!.rMultiple,
-        input_seconds: r.inputSeconds ?? null,
-      };
-    });
+      try {
+        return toMigrationRow(r, user.id);
+      } catch {
+        return null;
+      }
+    })
+    .filter((row): row is MigrationRow => row !== null);
 
   if (rows.length === 0) {
     return NextResponse.json({ migrated: 0, skipped: reps.length });

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -19,6 +18,7 @@ import { Term } from "@/components/term";
 import { useUser } from "@/lib/auth/use-user";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
+import { GuestNotice } from "@/components/auth/guest-notice";
 import { evaluateGate } from "@/lib/gate/rules";
 import {
   adherenceRate,
@@ -28,6 +28,7 @@ import {
   requiredSample,
   setupAccuracy,
   tradedReps,
+  decisionReps,
 } from "@/lib/metrics/stats";
 import type { Rep } from "@/lib/rep/types";
 import { cn } from "@/lib/utils";
@@ -39,16 +40,14 @@ function isGoodJudgment(rep: Rep): boolean {
 }
 
 export default function ProgressPage() {
-  const router = useRouter();
   const { user, loading: userLoading } = useUser();
   const reps = useRepLogStore((s) => s.reps);
   const status = useRepLogStore((s) => s.status);
   const gateLevel = useAccountStore((s) => s.gateLevel);
   const gateSynced = useAccountStore((s) => s.serverSynced);
-
-  useEffect(() => {
-    if (!userLoading && !user) router.replace("/login");
-  }, [userLoading, user, router]);
+  const logMode = useRepLogStore((s) => s.mode);
+  // 게스트는 이 브라우저의 기록으로 통계를 보고, 게이트는 로그인 후에 열린다
+  const guest = !userLoading && !user;
 
   // 다른 기기에서 연습한 기록까지 반영되도록 들어올 때마다 서버에서 다시 받는다
   useEffect(() => {
@@ -74,14 +73,17 @@ export default function ProgressPage() {
     );
   }
 
-  if (userLoading || !user || status !== "ready") {
+  if (userLoading || status !== "ready" || logMode !== (user ? "server" : "guest")) {
     return <div className="h-64 py-10" />;
   }
+
+  const guestBanner = guest && <GuestNotice variant="banner" count={decisionReps(reps).length} />;
 
   if (n < MIN_SAMPLE) {
     return (
       <div className="flex flex-col gap-6 py-10">
         <h1 className="text-[20px] font-bold text-foreground">진척</h1>
+        {guestBanner}
         <p className="text-[13px] text-muted-foreground">
           {MIN_SAMPLE}회 이상 연습하면 여기에 통계가 나옵니다. (지금 {n}회)
         </p>
@@ -117,6 +119,7 @@ export default function ProgressPage() {
   return (
     <div className="flex flex-col gap-6 py-6">
       <h1 className="text-[20px] font-bold text-foreground">진척</h1>
+      {guestBanner}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard

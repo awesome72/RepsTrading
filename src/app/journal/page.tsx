@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useUser } from "@/lib/auth/use-user";
+import { useRepLogStore } from "@/lib/rep/log-store";
+import { decisionReps } from "@/lib/metrics/stats";
+import { GuestNotice } from "@/components/auth/guest-notice";
 import { apiListReps, type ServerRep } from "@/lib/rep/api";
 import { generateScenario } from "@/lib/market/scenario";
 import type { DecisionGrade, SetupChoice } from "@/lib/rep/types";
@@ -47,16 +49,13 @@ function downloadCsv(content: string, filename: string) {
 }
 
 export default function JournalPage() {
-  const router = useRouter();
   const { user, loading: userLoading } = useUser();
   const [reps, setReps] = useState<ServerRep[] | null>(null);
   const [setupFilter, setSetupFilter] = useState<"all" | SetupChoice>("all");
   const [gradeFilter, setGradeFilter] = useState<"all" | DecisionGrade>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!userLoading && !user) router.replace("/login");
-  }, [userLoading, user, router]);
+  const guestReps = useRepLogStore((s) => (s.mode === "guest" ? s.reps : null));
 
   useEffect(() => {
     if (!user) return;
@@ -75,6 +74,18 @@ export default function JournalPage() {
       (setupFilter === "all" || r.plan_setup === setupFilter) &&
       (gradeFilter === "all" || r.decision_grade === gradeFilter)
   );
+
+  if (!userLoading && !user) {
+    return (
+      <div className="py-10">
+        <GuestNotice
+          variant="page"
+          title="기록 화면은 로그인 후 볼 수 있습니다."
+          count={guestReps ? decisionReps(guestReps).length : 0}
+        />
+      </div>
+    );
+  }
 
   if (userLoading || !user || reps === null) {
     return <div className="h-64 py-10" />;

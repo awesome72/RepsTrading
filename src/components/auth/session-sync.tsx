@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useUser } from "@/lib/auth/use-user";
-import { useRepLogStore } from "@/lib/rep/log-store";
+import { clearGuestLog, readGuestLog, useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
 import { apiMigrate } from "@/lib/rep/api";
 import type { Rep } from "@/lib/rep/types";
@@ -52,10 +52,22 @@ async function migrateLegacyLog() {
   setFlags();
 }
 
-/** 로그인하면 서버 기록·설정을 받아오고, 로그아웃하면 화면에 남은 이전 사용자 데이터를 비운다 */
+/** 로그인 전에 게스트로 한 연습을 계정으로 옮긴다. 성공했을 때만 이 브라우저의 사본을 지운다 */
+async function migrateGuestLog() {
+  const guest = readGuestLog();
+  if (guest.length === 0) return;
+  await apiMigrate(guest);
+  clearGuestLog();
+}
+
+/**
+ * 로그인하면 서버 기록·설정을 받아오고, 로그아웃하면 화면에 남은 이전 사용자 데이터를 비운다.
+ * 로그인하지 않은 방문자는 이 브라우저에 저장된 게스트 기록으로 연습한다.
+ */
 export function SessionSync() {
   const { user, loading } = useUser();
-  const userIdRef = useRef<string | null>(null);
+  // undefined = 아직 한 번도 판정하지 않음 (첫 방문 게스트도 게스트 기록을 불러와야 한다)
+  const userIdRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (loading) return;
@@ -68,18 +80,19 @@ export function SessionSync() {
       useRepLogStore.getState().reset();
       useAccountStore.getState().reset();
     }
-    if (!id) return;
+    if (!id) {
+      useRepLogStore.getState().loadGuest();
+      return;
+    }
 
-    migrateLegacyLog()
-      .catch(() => {})
-      .finally(() => {
-        if (userIdRef.current !== id) return;
-        useRepLogStore.getState().refresh();
-        useAccountStore
-          .getState()
-          .syncWithServer()
-          .catch(() => {});
-      });
+    Promise.allSettled([migrateLegacyLog(), migrateGuestLog()]).finally(() => {
+      if (userIdRef.current !== id) return;
+      useRepLogStore.getState().refresh();
+      useAccountStore
+        .getState()
+        .syncWithServer()
+        .catch(() => {});
+    });
   }, [user, loading]);
 
   return null;

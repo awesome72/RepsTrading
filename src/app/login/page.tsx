@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useRepLogStore } from "@/lib/rep/log-store";
+import { decisionReps } from "@/lib/metrics/stats";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const guestCount = useRepLogStore((s) => (s.mode === "guest" ? decisionReps(s.reps).length : 0));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +42,13 @@ export default function LoginPage() {
           저장됩니다.
         </p>
       </div>
+
+      {guestCount > 0 && (
+        <p className="w-full max-w-xs rounded-lg border border-border bg-card px-4 py-3 text-center text-[12px] leading-relaxed text-muted-foreground">
+          게스트로 한 <span className="num text-foreground">{guestCount}</span>회는 로그인하면 계정으로
+          옮겨집니다. 메일의 링크는 <span className="text-foreground">지금 이 브라우저에서</span> 열어주세요.
+        </p>
+      )}
 
       {status === "sent" ? (
         <div className="w-full max-w-xs rounded-lg border border-good/40 bg-good/10 px-4 py-3 text-center text-[13px] leading-relaxed text-foreground">

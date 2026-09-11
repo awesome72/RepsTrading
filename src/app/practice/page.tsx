@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { BlindChartHandle, ChartPriceLine } from "@/components/blind-chart";
 import { EntryDecision } from "@/components/rep/entry-decision";
@@ -13,7 +12,9 @@ import { GateTransition } from "@/components/gate/gate-transition";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
 import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
-import { useRepLogStore } from "@/lib/rep/log-store";
+import { GUEST_REP_LIMIT, useRepLogStore } from "@/lib/rep/log-store";
+import { decisionReps } from "@/lib/metrics/stats";
+import { GuestNotice } from "@/components/auth/guest-notice";
 import { useAccountStore } from "@/lib/account/store";
 import type { GateTransition as GateTransitionData } from "@/lib/gate/rules";
 import { apiEvaluateGate } from "@/lib/account/api";
@@ -84,7 +85,6 @@ function tryRestoreSession(): { scenario: Scenario; repId: string | null; reveal
 }
 
 export default function PracticePage() {
-  const router = useRouter();
   const { user, loading: userLoading } = useUser();
 
   const [scenario, setScenario] = useState<Scenario | null>(null);
@@ -103,18 +103,21 @@ export default function PracticePage() {
   const rep = useRepStore((s) => s.rep);
   const logReps = useRepLogStore((s) => s.reps);
   const logStatus = useRepLogStore((s) => s.status);
+  const logMode = useRepLogStore((s) => s.mode);
   const [gateTransition, setGateTransition] = useState<GateTransitionData | null>(null);
 
-  useEffect(() => {
-    if (!userLoading && !user) {
-      router.replace("/login");
-    }
-  }, [userLoading, user, router]);
+  // 로그인 전에도 연습할 수 있다 — 기록은 이 브라우저에만 저장되고 로그인하면 계정으로 옮겨진다
+  const guest = !userLoading && !user;
+  const guestCount = guest ? decisionReps(logReps).length : 0;
+  const logReady = logStatus === "ready" && logMode === (user ? "server" : "guest");
+  // 토큰 갱신 때마다 user 객체가 새로 오므로, 연습을 새로 시작하는 기준은 id로만 삼는다
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    if (!user) return;
+    if (userLoading) return;
     const restored = tryRestoreSession();
-    if (restored) {
+    // 게스트 연습(서버 id 없음)은 게스트로, 계정 연습은 로그인 상태로만 이어간다 — 섞이면 청산을 기록할 곳이 없다
+    if (restored && (restored.repId === null) === (userId === null)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setScenario(restored.scenario);
       repIdRef.current = restored.repId;
@@ -130,7 +133,7 @@ export default function PracticePage() {
     useRepStore
       .getState()
       .startWatching({ scenarioId: next.id, seed: next.seed, setupLabel: next.setupLabel });
-  }, [user]);
+  }, [userLoading, userId]);
 
   // 계획 저장 후 재생: 봉을 하나씩 공개하며 손절/목표/시간초과를 감시한다
   useEffect(() => {
@@ -196,8 +199,9 @@ export default function PracticePage() {
 
   const entryPrice = scenario ? scenario.candles[scenario.decisionIndex - 1].close : 0;
 
-  /** 승급·강등은 서버가 서버 기록으로 판정한다 — 기기마다 단계가 달라지지 않는다 */
+  /** 승급·강등은 서버가 서버 기록으로 판정한다 — 기기마다 단계가 달라지지 않는다 (게스트는 게이트 없음) */
   async function checkGateTransition() {
+    if (guest) return;
     try {
       const { gateLevel, transition } = await apiEvaluateGate();
       useAccountStore.getState().setGateLevel(gateLevel);
@@ -219,6 +223,7 @@ export default function PracticePage() {
     const revealed = useRepStore.getState().rep;
     if (!revealed) return;
     useRepLogStore.getState().addRep(revealed);
+    if (guest) return;
 
     try {
       const saved = await apiPassRep({ scenarioSeed: scenario.seed, inputSeconds });
@@ -237,6 +242,12 @@ export default function PracticePage() {
   async function handleSavePlan(plan: Plan) {
     if (!scenario || !rep) return;
     setApiError(null);
+    if (guest) {
+      useRepStore.getState().commit(plan);
+      persistSession(scenario, null, 0);
+      setShowForm(false);
+      return;
+    }
     setSaving(true);
     try {
       const inputSeconds = (Date.now() - rep.openedAt) / 1000;
@@ -261,11 +272,12 @@ export default function PracticePage() {
   /** 청산을 서버에 기록한다. 계획을 지켰는지는 실행 기록으로 판정한다(서버도 같은 규칙으로 다시 판정). */
   async function submitExit(exit: { exitPrice: number; exitReason: ExitReason; exitIndex: number }) {
     const current = useRepStore.getState().rep;
-    if (!scenario || !repIdRef.current || !current?.plan) return;
+    if (!scenario || !current?.plan) return;
+    if (!guest && !repIdRef.current) return;
     const stopMoved = current.movedStopPrice !== undefined;
     const verdict = judgeExecution(scenario, current.plan, { ...exit, stopMoved });
     try {
-      await apiExecuteRep(repIdRef.current, { ...exit, stopMoved });
+      if (!guest) await apiExecuteRep(repIdRef.current!, { ...exit, stopMoved });
       useRepStore.getState().execute({ ...exit, adhered: verdict.adhered });
       persistSession(scenario, repIdRef.current, revealCountRef.current);
     } catch (e) {
@@ -298,9 +310,21 @@ export default function PracticePage() {
   }
 
   async function handleGrade(grade: DecisionGrade) {
+    setApiError(null);
+    if (guest) {
+      // 게스트는 결과를 이 브라우저에서 계산한다. 로그인해서 옮길 때 서버가 다시 계산·검증한다.
+      useRepStore.getState().grade(grade);
+      const revealed = useRepStore.getState().rep;
+      if (revealed) useRepLogStore.getState().addRep(revealed);
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+      } catch {
+        // ignore
+      }
+      return;
+    }
     const repId = repIdRef.current;
     if (!repId) return;
-    setApiError(null);
     try {
       const graded = await apiGradeRep(repId, grade);
       await apiRevealRep(repId);
@@ -363,10 +387,19 @@ export default function PracticePage() {
   }
 
   // 기록을 받기 전에 연습을 시작하면 즉시 피드백의 "이전 → 이후" 숫자가 틀리게 나온다
-  if (userLoading || !user || !scenario || !rep || logStatus !== "ready") {
+  if (userLoading || !scenario || !rep || !logReady) {
     return (
       <div className="flex flex-col gap-4 py-6">
         <div className="h-[420px] w-full rounded-lg border border-border bg-card" />
+      </div>
+    );
+  }
+
+  // 게스트 한도를 다 썼으면 새 연습을 시작하지 않는다 (진행 중이던 연습은 끝까지 마치게 둔다)
+  if (guest && guestCount >= GUEST_REP_LIMIT && rep.state === "WATCHING") {
+    return (
+      <div className="py-10">
+        <GuestNotice variant="limit" count={guestCount} />
       </div>
     );
   }
@@ -417,6 +450,8 @@ export default function PracticePage() {
         <p className="text-[14px] text-muted-foreground">{topText}</p>
         <p className="hidden text-[11px] text-muted-foreground/70 sm:block">{hint}</p>
       </div>
+
+      {guest && <GuestNotice variant="banner" count={guestCount} />}
 
       {apiError && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">

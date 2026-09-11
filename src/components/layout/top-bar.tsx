@@ -40,7 +40,7 @@ export function TopBar() {
           >
             용어 사전
           </Link>
-          {user && (
+          {user ? (
             <button
               type="button"
               onClick={handleLogout}
@@ -48,6 +48,10 @@ export function TopBar() {
             >
               로그아웃
             </button>
+          ) : (
+            <Link href="/login" className="text-[12px] font-semibold text-primary hover:underline">
+              로그인
+            </Link>
           )}
           {user && serverSynced && (
             <Badge className="border border-border bg-card font-normal text-foreground">
