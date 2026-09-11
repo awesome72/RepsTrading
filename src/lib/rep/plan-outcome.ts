@@ -1,7 +1,7 @@
 import type { Candle } from "@/lib/market/generator";
 import type { Scenario } from "@/lib/market/scenario";
 import { rMultiple } from "@/lib/metrics/r-multiple";
-import type { Plan } from "./types";
+import type { DecisionGrade, ExitReason, Plan } from "./types";
 
 /** 계획 저장 후 최대 몇 봉까지 재생하는가 — 넘으면 시간 초과로 청산한다 */
 export const MAX_REPLAY_CANDLES = 30;
@@ -44,6 +44,52 @@ export function simulatePlan(scenario: Scenario, plan: Plan): SimulatedOutcome {
   }
   const last = decisionIndex + MAX_REPLAY_CANDLES - 1;
   return finish("timeout", last, candles[last].close);
+}
+
+export type ExecutionFacts = {
+  exitReason: ExitReason;
+  exitIndex: number;
+  exitPrice: number;
+  /** 재생 중 "손절가 내리기"를 눌렀는가 (클라이언트만 아는 사실 — 스스로 불리하게만 보고할 수 있다) */
+  stopMoved: boolean;
+};
+
+export type ExecutionKind = "followed" | "early-exit" | "stop-ignored";
+
+export type ExecutionVerdict = {
+  kind: ExecutionKind;
+  adhered: boolean;
+  /** 실행 사실이 허락하는 가장 좋은 등급. 이보다 좋은 등급은 줄 수 없다 */
+  bestGrade: Extract<DecisionGrade, "A" | "C" | "D">;
+};
+
+const PRICE_TOLERANCE = 0.5;
+
+/**
+ * 계획을 지켰는지는 사용자가 아니라 실행 기록이 정한다.
+ * - 계획상 청산 지점을 지나서도 들고 있었거나, 원래 손절가 아래에서 팔렸거나, 손실이 1R을 넘었다 → 손절 무시(D)
+ * - 계획상 청산 전에 직접 팔았다 → 일찍 청산(C)
+ * - 계획상 청산 지점에서 계획대로 끝났다 → 계획 준수(A·B는 판단 질문으로 가른다)
+ */
+export function judgeExecution(scenario: Scenario, plan: Plan, facts: ExecutionFacts): ExecutionVerdict {
+  const planned = simulatePlan(scenario, plan);
+  const r = rMultiple(plan.entryPrice, facts.exitPrice, plan.stopPrice);
+  const stopIgnored =
+    facts.stopMoved ||
+    r < -1 - 1e-6 ||
+    facts.exitIndex > planned.exitIndex ||
+    (facts.exitReason === "stop" && facts.exitPrice < plan.stopPrice - PRICE_TOLERANCE);
+
+  if (stopIgnored) return { kind: "stop-ignored", adhered: false, bestGrade: "D" };
+  if (facts.exitReason === "manual") return { kind: "early-exit", adhered: false, bestGrade: "C" };
+  return { kind: "followed", adhered: true, bestGrade: "A" };
+}
+
+const GRADE_ORDER: DecisionGrade[] = ["A", "B", "C", "D"];
+
+/** 사용자는 실행 사실보다 스스로를 더 나쁘게 채점할 수는 있어도 더 좋게 채점할 수는 없다 */
+export function isGradeAllowed(grade: DecisionGrade, bestGrade: DecisionGrade): boolean {
+  return GRADE_ORDER.indexOf(grade) >= GRADE_ORDER.indexOf(bestGrade);
 }
 
 /**

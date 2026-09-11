@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { deriveEntryPrice } from "@/lib/rep/server-guard";
+import { rebuildPlan } from "@/lib/rep/server-guard";
+import { isGradeAllowed, judgeExecution } from "@/lib/rep/plan-outcome";
 import { rMultiple } from "@/lib/metrics/r-multiple";
 import type { DecisionGrade } from "@/lib/rep/types";
 
@@ -38,8 +39,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  const entryPrice = deriveEntryPrice(rep.scenario_seed);
-  const rResult = rMultiple(entryPrice, rep.exit_price, rep.plan_stop);
+  // 실행 기록이 허락하는 것보다 좋은 등급은 받지 않는다 (예: 직접 청산했는데 A)
+  const { scenario, plan } = rebuildPlan(rep);
+  const verdict = judgeExecution(scenario, plan, {
+    exitReason: rep.exit_reason,
+    exitIndex: rep.exit_index,
+    exitPrice: rep.exit_price,
+    // 손절을 옮겼다는 자기 보고는 execute 때 adhered=false로 남아 있다
+    stopMoved: rep.adhered === false && rep.exit_reason !== "manual",
+  });
+  if (!isGradeAllowed(decision_grade, verdict.bestGrade)) {
+    return NextResponse.json(
+      { error: `실행 기록과 맞지 않는 등급입니다 (가능한 최고 등급: ${verdict.bestGrade}).` },
+      { status: 400 }
+    );
+  }
+
+  const rResult = rMultiple(plan.entryPrice, rep.exit_price, rep.plan_stop);
 
   const { error: updateError } = await supabase
     .from("reps")

@@ -108,11 +108,24 @@ describe("adherenceRate", () => {
 });
 
 describe("setupAccuracy", () => {
-  it("사용자의 선택과 실제 셋업이 같을 때만 정답으로 센다", () => {
+  it("산 경우: 고른 셋업이 실제 셋업과 같을 때만 정답", () => {
     const reps = [
       fakeRep({ r: 1, grade: "A", adhered: true, setupChoice: "pullback", setupLabel: "pullback" }),
       fakeRep({ r: 1, grade: "A", adhered: true, setupChoice: "breakout", setupLabel: "pullback" }),
-      fakeRep({ r: 1, grade: "A", adhered: true, setupChoice: "other", setupLabel: "none" }),
+    ];
+    expect(setupAccuracy(reps)).toBeCloseTo(1 / 2);
+  });
+
+  it("셋업이 없는 차트에서 '기타'로 산 것은 정답이 아니다 — 지나가는 것이 정답이다", () => {
+    const reps = [fakeRep({ r: 1, grade: "A", adhered: true, setupChoice: "other", setupLabel: "none" })];
+    expect(setupAccuracy(reps)).toBe(0);
+  });
+
+  it("지나간 판단도 센다: 셋업 없는 곳을 지나가면 정답, 셋업을 지나치면 오답", () => {
+    const reps = [
+      fakeRep({ r: 0, grade: "A", adhered: true, exitReason: "pass", setupLabel: "none" }),
+      fakeRep({ r: 0, grade: "A", adhered: true, exitReason: "pass", setupLabel: "breakout" }),
+      fakeRep({ r: 1, grade: "A", adhered: true, setupChoice: "breakout", setupLabel: "breakout" }),
     ];
     expect(setupAccuracy(reps)).toBeCloseTo(2 / 3);
   });

@@ -3,6 +3,8 @@ import type { Candle } from "@/lib/market/generator";
 import type { Scenario } from "@/lib/market/scenario";
 import {
   checkPlanExit,
+  isGradeAllowed,
+  judgeExecution,
   MAX_REPLAY_CANDLES,
   POST_EXIT_CANDLES,
   revealWindow,
@@ -55,6 +57,71 @@ describe("simulatePlan", () => {
   it("봉이 모자라면 마지막 봉에서 시간 초과", () => {
     const out = simulatePlan(scenario([], DECISION + 5), plan);
     expect(out).toMatchObject({ exitReason: "timeout", exitIndex: DECISION + 4 });
+  });
+});
+
+describe("judgeExecution", () => {
+  const stopHitFirst = scenario([candle(0, 94, 101), candle(0, 89, 100)]);
+
+  it("계획상 청산 지점에서 계획대로 끝나면 준수(최고 A)", () => {
+    const v = judgeExecution(stopHitFirst, plan, {
+      exitReason: "stop",
+      exitIndex: DECISION,
+      exitPrice: 95,
+      stopMoved: false,
+    });
+    expect(v).toEqual({ kind: "followed", adhered: true, bestGrade: "A" });
+  });
+
+  it("계획상 청산 전에 직접 팔면 일찍 청산(최고 C)", () => {
+    const v = judgeExecution(scenario(), plan, {
+      exitReason: "manual",
+      exitIndex: DECISION + 2,
+      exitPrice: 100,
+      stopMoved: false,
+    });
+    expect(v).toEqual({ kind: "early-exit", adhered: false, bestGrade: "C" });
+  });
+
+  it("손절가를 내려서 원래 손절 아래에서 팔리면, 플래그가 없어도 서버가 손절 무시(D)로 본다", () => {
+    const v = judgeExecution(stopHitFirst, plan, {
+      exitReason: "stop",
+      exitIndex: DECISION + 1,
+      exitPrice: 90,
+      stopMoved: false,
+    });
+    expect(v.kind).toBe("stop-ignored");
+    expect(v.bestGrade).toBe("D");
+  });
+
+  it("원래 손절을 지나서 들고 있다가 직접 팔아도 손절 무시(D)", () => {
+    const v = judgeExecution(stopHitFirst, plan, {
+      exitReason: "manual",
+      exitIndex: DECISION + 1,
+      exitPrice: 96,
+      stopMoved: false,
+    });
+    expect(v.kind).toBe("stop-ignored");
+  });
+
+  it("손절을 내렸지만 결과에 영향이 없었어도, 스스로 보고하면 D", () => {
+    const v = judgeExecution(scenario([candle(0, 100, 111)]), plan, {
+      exitReason: "target",
+      exitIndex: DECISION,
+      exitPrice: 110,
+      stopMoved: true,
+    });
+    expect(v.bestGrade).toBe("D");
+  });
+});
+
+describe("isGradeAllowed", () => {
+  it("실행 사실보다 좋은 등급은 거부하고, 같거나 나쁜 등급은 허용한다", () => {
+    expect(isGradeAllowed("A", "C")).toBe(false);
+    expect(isGradeAllowed("B", "C")).toBe(false);
+    expect(isGradeAllowed("C", "C")).toBe(true);
+    expect(isGradeAllowed("D", "C")).toBe(true);
+    expect(isGradeAllowed("B", "A")).toBe(true);
   });
 });
 

@@ -172,7 +172,7 @@ export default function ProgressPage() {
       <section className="flex flex-col gap-2">
         <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
           등급 분포
-          <InfoDot content="판단이 A/B/C/D 중 어디에 몰려 있는지 보여줍니다. 등급 기준은 채점 화면에서 매번 다시 볼 수 있습니다 — C·D가 많다면 계획을 지키는 것부터 다시 다잡아야 합니다." />
+          <InfoDot content="A·B는 계획대로 실행한 거래(A는 판단 근거까지 분명), C는 계획보다 먼저 판 거래, D는 손절을 내리거나 무시한 거래입니다. C·D가 많다면 계획을 지키는 것부터 다시 다잡아야 합니다." />
         </h2>
         <div className="h-[180px] w-full rounded-lg border border-border bg-card p-2">
           <ResponsiveContainer width="100%" height="100%">

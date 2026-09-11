@@ -1,5 +1,5 @@
 import type { Rep } from "@/lib/rep/types";
-import { adherenceRate, requiredSample, setupAccuracy } from "@/lib/metrics/stats";
+import { adherenceRate, decisionReps, requiredSample, setupAccuracy } from "@/lib/metrics/stats";
 
 export type FeedbackRule = {
   id: string;
@@ -24,7 +24,7 @@ export const FEEDBACK_RULES: FeedbackRule[] = [
   {
     id: "grade-d",
     message:
-      "손실 한도를 지키는 것이 지금 가장 중요합니다. 다음 연습은 손절가를 먼저 정하고 시작하세요.",
+      "손절가를 내리는 순간 손실 한도가 사라집니다. 다음 연습에서는 정한 손절을 그대로 두세요.",
     test: (reps) => tradedOnly(reps).at(-1)?.decisionGrade === "D",
   },
   {
@@ -44,9 +44,11 @@ export const FEEDBACK_RULES: FeedbackRule[] = [
   },
   {
     id: "setup-recognition",
-    message: "차트 모양을 구분하는 연습이 더 필요합니다. 눌림목과 돌파의 차이를 다시 보세요.",
+    message:
+      "차트 모양을 구분하는 연습이 더 필요합니다. 눌림목과 돌파의 차이를 다시 보고, 셋업이 아닌 곳은 지나가세요.",
+    // 지나간 판단까지 포함한 최근 10번의 판단으로 본다
     test: (reps) => {
-      const recent = lastN(reps, 10);
+      const recent = decisionReps(reps).slice(-10);
       return recent.length > 0 && setupAccuracy(recent) <= 0.5;
     },
   },

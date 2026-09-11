@@ -9,7 +9,7 @@ import { GradingScreen } from "@/components/rep/grading-screen";
 import { RevealPanel } from "@/components/rep/reveal-panel";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
-import { checkPlanExit, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
+import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
 import type { DecisionGrade, Plan } from "@/lib/rep/types";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
@@ -155,6 +155,12 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
         <GradingScreen
           plan={rep.plan}
           exitReason={rep.exitReason}
+          verdict={judgeExecution(scenario, rep.plan, {
+            exitReason: rep.exitReason,
+            exitIndex: rep.exitIndex ?? scenario.decisionIndex,
+            exitPrice: rep.exitPrice ?? entryPrice,
+            stopMoved: false,
+          })}
           candles={scenario.candles.slice(
             Math.max(0, scenario.decisionIndex - 20),
             (rep.exitIndex ?? scenario.decisionIndex) + 1

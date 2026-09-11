@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { validateExit } from "@/lib/rep/server-guard";
+import { rebuildPlan, validateExit } from "@/lib/rep/server-guard";
+import { judgeExecution } from "@/lib/rep/plan-outcome";
 import type { ExitReason } from "@/lib/rep/types";
+
+const VALID_EXITS: ExitReason[] = ["stop", "target", "manual", "timeout"];
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,12 +17,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const body = await request.json();
-  const { exit_price, exit_reason, exit_index, adhered } = body as {
+  const { exit_price, exit_reason, exit_index, stop_moved } = body as {
     exit_price: number;
     exit_reason: ExitReason;
     exit_index: number;
-    adhered: boolean;
+    stop_moved?: boolean;
   };
+  if (
+    !VALID_EXITS.includes(exit_reason) ||
+    typeof exit_price !== "number" ||
+    typeof exit_index !== "number"
+  ) {
+    return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
+  }
+  const stopMoved = stop_moved === true;
 
   const { data: rep, error: fetchError } = await supabase
     .from("reps")
@@ -44,14 +55,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     exitReason: exit_reason,
     exitPrice: exit_price,
     exitIndex: exit_index,
+    stopMoved,
   });
   if (!validation.valid) {
     return NextResponse.json({ error: validation.reason }, { status: 400 });
   }
 
+  // 계획을 지켰는지는 클라이언트가 보낸 값이 아니라 실행 기록으로 서버가 판정한다
+  const { scenario, plan } = rebuildPlan(rep);
+  const verdict = judgeExecution(scenario, plan, {
+    exitReason: exit_reason,
+    exitIndex: exit_index,
+    exitPrice: exit_price,
+    stopMoved,
+  });
+
   const { error: updateError } = await supabase
     .from("reps")
-    .update({ state: "EXECUTED", exit_price, exit_reason, exit_index, adhered })
+    .update({ state: "EXECUTED", exit_price, exit_reason, exit_index, adhered: verdict.adhered })
     .eq("id", id);
 
   if (updateError) {

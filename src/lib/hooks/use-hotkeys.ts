@@ -22,7 +22,13 @@ export function useHotkeys(map: HotkeyMap, allowInInput: string[] = ["Enter", "E
       if (isTyping && !allowInInput.includes(e.key)) return;
 
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      const fn = mapRef.current[key];
+      // 한글 입력 상태에서는 e.key가 "ㅛ" 같은 자모로 오므로 물리 키(e.code)로도 찾는다
+      const physical = e.code.startsWith("Key")
+        ? e.code.slice(3).toLowerCase()
+        : e.code.startsWith("Digit")
+          ? e.code.slice(5)
+          : undefined;
+      const fn = mapRef.current[key] ?? (physical ? mapRef.current[physical] : undefined);
       if (fn) {
         e.preventDefault();
         fn();

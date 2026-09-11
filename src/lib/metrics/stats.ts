@@ -1,5 +1,4 @@
-import type { DecisionGrade, Rep, SetupChoice } from "@/lib/rep/types";
-import type { SetupLabel } from "@/lib/market/scenario";
+import type { DecisionGrade, Rep } from "@/lib/rep/types";
 
 /** 지나간(pass) 기록과 온보딩 가이드 연습은 실제 성과가 아니므로 지표에서 제외한다 */
 export function tradedReps(reps: Rep[]): Rep[] {
@@ -45,20 +44,27 @@ export function adherenceRate(reps: Rep[]): number {
   return traded.filter((r) => r.adhered).length / traded.length;
 }
 
-const CHOICE_TO_LABEL: Record<SetupChoice, SetupLabel> = {
-  pullback: "pullback",
-  breakout: "breakout",
-  other: "none",
-};
+/** 결과가 확정된 모든 판단 — 산 것과 지나간 것 모두 (가이드 연습 제외) */
+export function decisionReps(reps: Rep[]): Rep[] {
+  return reps.filter((r) => !r.guided && r.result);
+}
 
-/** 사용자가 고른 셋업이 실제 셋업과 일치한 비율 */
+/**
+ * 차트를 맞게 읽었는가.
+ * 셋업이 없는 곳은 지나가는 것이 정답이고, 셋업이 있는 곳은 그 셋업으로 사야 정답이다.
+ * "기타"로 산 것은 어느 쪽이든 정답이 아니다.
+ */
+export function isCorrectRead(rep: Rep): boolean {
+  if (rep.exitReason === "pass") return rep.setupLabel === "none";
+  const choice = rep.plan?.setupChoice;
+  return choice !== undefined && choice !== "other" && choice === rep.setupLabel;
+}
+
+/** 판별 정확도 — 지나간 판단까지 포함해 차트를 맞게 읽은 비율 */
 export function setupAccuracy(reps: Rep[]): number {
-  const traded = tradedReps(reps);
-  if (traded.length === 0) return 0;
-  const correct = traded.filter(
-    (r) => r.plan && CHOICE_TO_LABEL[r.plan.setupChoice] === r.setupLabel
-  ).length;
-  return correct / traded.length;
+  const decisions = decisionReps(reps);
+  if (decisions.length === 0) return 0;
+  return decisions.filter(isCorrectRead).length / decisions.length;
 }
 
 export type GradeDistribution = Record<DecisionGrade, number>;

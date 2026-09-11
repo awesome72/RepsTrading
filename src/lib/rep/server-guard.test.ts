@@ -93,6 +93,15 @@ describe("validateExit", () => {
     expect(result.valid).toBe(false);
   });
 
+  it("손절가를 내렸다면 원래 손절 아래 청산을 허용하되, 봉이 실제로 닿았어야 한다", () => {
+    const idx = scenario.decisionIndex;
+    const low = scenario.candles[idx].low;
+    const base = { scenarioSeed: seed, planTargetR, exitReason: "stop" as const, exitIndex: idx, stopMoved: true };
+    expect(validateExit({ ...base, planStop: low + 100, exitPrice: low + 50 }).valid).toBe(true);
+    expect(validateExit({ ...base, planStop: low + 100, exitPrice: low - 500 }).valid).toBe(false);
+    expect(validateExit({ ...base, stopMoved: false, planStop: low + 100, exitPrice: low + 50 }).valid).toBe(false);
+  });
+
   it("manual/timeout은 해당 봉의 종가와 일치해야 유효하다", () => {
     const idx = scenario.decisionIndex;
     const candle = scenario.candles[idx];

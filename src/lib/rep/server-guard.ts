@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
-import { generateScenario } from "@/lib/market/scenario";
-import type { ExitReason } from "@/lib/rep/types";
+import { generateScenario, type Scenario } from "@/lib/market/scenario";
+import type { ExitReason, Plan, SetupChoice } from "@/lib/rep/types";
 
 /** 계획 저장 시점의 필드를 해시로 남긴다 (무결성 확인용, 변조 감지) */
 export function computeCommitHash(params: {
@@ -28,6 +28,27 @@ export function deriveEntryPrice(scenarioSeed: number): number {
   return scenario.candles[scenario.decisionIndex - 1].close;
 }
 
+/** DB 행으로부터 시나리오와 계획을 다시 만든다 — 진입가·목표가는 저장하지 않고 seed로 재생성한다 */
+export function rebuildPlan(row: {
+  scenario_seed: number;
+  plan_setup: SetupChoice;
+  plan_stop: number;
+  plan_target_r: number;
+}): { scenario: Scenario; plan: Plan } {
+  const scenario = generateScenario(row.scenario_seed);
+  const entryPrice = scenario.candles[scenario.decisionIndex - 1].close;
+  return {
+    scenario,
+    plan: {
+      setupChoice: row.plan_setup,
+      entryPrice,
+      stopPrice: row.plan_stop,
+      targetPrice: entryPrice + row.plan_target_r * (entryPrice - row.plan_stop),
+      targetR: row.plan_target_r,
+    },
+  };
+}
+
 const PRICE_TOLERANCE = 0.5; // 부동소수점 오차 허용
 
 /**
@@ -41,6 +62,8 @@ export function validateExit(params: {
   exitReason: ExitReason;
   exitPrice: number;
   exitIndex: number;
+  /** 재생 중 손절가를 내렸다면 원래 손절가보다 낮은 가격의 손절 청산을 허용한다 */
+  stopMoved?: boolean;
 }): { valid: boolean; reason?: string } {
   const scenario = generateScenario(params.scenarioSeed);
   const { decisionIndex, candles } = scenario;
@@ -62,6 +85,11 @@ export function validateExit(params: {
 
   switch (params.exitReason) {
     case "stop":
+      if (params.stopMoved && params.exitPrice < params.planStop) {
+        return candle.low <= params.exitPrice + PRICE_TOLERANCE
+          ? { valid: true }
+          : { valid: false, reason: "해당 봉이 옮긴 손절가에 닿지 않았습니다." };
+      }
       if (candle.low > params.planStop) {
         return { valid: false, reason: "해당 봉이 손절가에 닿지 않았습니다." };
       }

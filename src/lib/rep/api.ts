@@ -53,7 +53,7 @@ export async function apiCommitRep(params: {
 
 export async function apiExecuteRep(
   id: string,
-  params: { exitPrice: number; exitReason: ExitReason; exitIndex: number; adhered: boolean }
+  params: { exitPrice: number; exitReason: ExitReason; exitIndex: number; stopMoved: boolean }
 ): Promise<{ state: string }> {
   const res = await fetch(`/api/reps/${id}/execute`, {
     method: "POST",
@@ -62,7 +62,7 @@ export async function apiExecuteRep(
       exit_price: params.exitPrice,
       exit_reason: params.exitReason,
       exit_index: params.exitIndex,
-      adhered: params.adhered,
+      stop_moved: params.stopMoved,
     }),
   });
   return asJson(res);

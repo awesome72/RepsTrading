@@ -12,6 +12,7 @@ type RepStore = {
     guided?: boolean;
   }) => void;
   commit: (plan: Plan) => void;
+  moveStop: (newStopPrice: number) => void;
   execute: (params: {
     exitPrice: number;
     exitReason: ExitReason;
@@ -36,6 +37,12 @@ export const useRepStore = create<RepStore>((set, get) => ({
     const rep = get().rep;
     if (!rep) return;
     set({ rep: machine.commitPlan(rep, plan, Date.now()) });
+  },
+
+  moveStop: (newStopPrice) => {
+    const rep = get().rep;
+    if (!rep) return;
+    set({ rep: machine.moveStop(rep, newStopPrice) });
   },
 
   execute: (params) => {

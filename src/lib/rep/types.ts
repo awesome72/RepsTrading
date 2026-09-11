@@ -33,6 +33,8 @@ export type Rep = {
   committedAt?: number;
   inputSeconds?: number;
   plan?: Plan;
+  /** 재생 중 "손절가 내리기"로 옮긴 손절가. 원래 계획(plan.stopPrice)은 바뀌지 않는다 */
+  movedStopPrice?: number;
   adhered?: boolean;
   exitReason?: ExitReason;
   exitIndex?: number;

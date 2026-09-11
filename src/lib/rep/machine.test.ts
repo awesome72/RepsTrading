@@ -7,6 +7,7 @@ import {
   executeExit,
   gradeDecision,
   getResult,
+  moveStop,
   passRep,
   reveal,
 } from "./machine";
@@ -129,5 +130,23 @@ describe("inputSeconds", () => {
     });
     const committed = commitPlan(rep, plan, 1_000 + 12_500);
     expect(committed.inputSeconds).toBeCloseTo(12.5);
+  });
+});
+
+describe("moveStop", () => {
+  it("재생 중에는 손절가를 낮출 수 있고, 원래 계획은 그대로 남는다", () => {
+    const committed = commitPlan(baseRep(), plan, 1000);
+    const moved = moveStop(committed, 66_000);
+    expect(moved.movedStopPrice).toBe(66_000);
+    expect(moved.plan?.stopPrice).toBe(68_000);
+  });
+
+  it("지금보다 높은 값으로는 옮길 수 없다", () => {
+    const committed = commitPlan(baseRep(), plan, 1000);
+    expect(() => moveStop(committed, 69_000)).toThrow();
+  });
+
+  it("재생 중이 아니면 옮길 수 없다", () => {
+    expect(() => moveStop(baseRep(), 60_000)).toThrow();
   });
 });

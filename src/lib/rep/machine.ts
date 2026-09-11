@@ -52,6 +52,21 @@ export function commitPlan(rep: Rep, plan: Plan, committedAt: number): Rep {
   };
 }
 
+/**
+ * 재생 중 손절가를 내린다 — 계획에 없던 행동이라 이후 채점은 D로 고정된다.
+ * 계획 자체(plan)는 그대로 두고, 실제로 적용되는 손절가만 따로 기록한다.
+ */
+export function moveStop(rep: Rep, newStopPrice: number): Rep {
+  if (rep.state !== "COMMITTED" || !rep.plan) {
+    throw new Error("재생 중에만 손절가를 옮길 수 있습니다.");
+  }
+  const current = rep.movedStopPrice ?? rep.plan.stopPrice;
+  if (!(newStopPrice < current)) {
+    throw new Error("손절가는 지금보다 낮은 값으로만 옮길 수 있습니다.");
+  }
+  return { ...rep, movedStopPrice: newStopPrice };
+}
+
 export function executeExit(
   rep: Rep,
   params: {

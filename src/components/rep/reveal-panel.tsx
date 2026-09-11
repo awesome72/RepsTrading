@@ -106,8 +106,8 @@ export function RevealPanel({
   const goodOutcome = r > 0;
   const lucky = !goodJudgment && goodOutcome;
   const graded = getGradeOption(rep.decisionGrade);
-  // 직접 청산했을 때만: 계획을 그대로 뒀다면 어떻게 끝났을지
-  const planned = rep.exitReason === "manual" && rep.plan ? simulatePlan(scenario, rep.plan) : null;
+  // 계획을 벗어났을 때만(직접 청산·손절 내림): 계획을 그대로 뒀다면 어떻게 끝났을지
+  const planned = rep.adhered === false && rep.plan ? simulatePlan(scenario, rep.plan) : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -133,7 +133,7 @@ export function RevealPanel({
       {graded && (
         <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card px-4 py-3 text-[13px]">
           <p className="font-semibold text-foreground">
-            당신의 채점: {graded.value} — {graded.label}
+            이번 채점: {graded.value} — {graded.label}
           </p>
           <p className="text-[12px] leading-snug text-muted-foreground">{graded.desc}</p>
         </div>
@@ -201,6 +201,9 @@ function AfterExitChart({
     { price: plan.entryPrice, label: "진입", tone: "neutral" },
     { price: plan.stopPrice, label: "손절", tone: "down" },
   ];
+  if (rep.movedStopPrice !== undefined) {
+    priceLines.push({ price: rep.movedStopPrice, label: "내린 손절", tone: "down" });
+  }
   const markers: ChartMarker[] = [
     {
       time: scenario.candles[scenario.decisionIndex - 1].time,
@@ -274,8 +277,8 @@ function PlanComparison({ planned, actualR }: { planned: SimulatedOutcome; actua
     Math.abs(diff) < 0.05
       ? "결과는 같았습니다. 그래도 계획을 중간에 바꾼 것은 기록에 남습니다."
       : diff > 0
-        ? `직접 파는 바람에 ${diff.toFixed(1)}R을 놓쳤습니다.`
-        : "이번엔 직접 판 것이 나았지만, 계획을 그때그때 바꾸는 습관은 길게 보면 손해입니다.";
+        ? `계획을 바꾸는 바람에 ${diff.toFixed(1)}R을 손해 봤습니다.`
+        : "이번엔 계획을 바꾼 것이 나았지만, 계획을 그때그때 바꾸는 습관은 길게 보면 손해입니다.";
 
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-4 py-3 text-[13px] text-foreground">
@@ -284,7 +287,7 @@ function PlanComparison({ planned, actualR }: { planned: SimulatedOutcome; actua
         <span>
           계획대로: {PLANNED_EXIT_NAME[planned.exitReason]} → {formatR(planned.rMultiple)}
         </span>
-        <span>직접 청산: {formatR(actualR)}</span>
+        <span>실제: {formatR(actualR)}</span>
       </div>
       <p className="text-[12px] leading-snug text-muted-foreground">{note}</p>
     </div>

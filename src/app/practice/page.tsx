@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import type { BlindChartHandle } from "@/components/blind-chart";
+import type { BlindChartHandle, ChartPriceLine } from "@/components/blind-chart";
 import { EntryDecision } from "@/components/rep/entry-decision";
 import { RepCardForm } from "@/components/rep/rep-card-form";
 import { GradingScreen } from "@/components/rep/grading-screen";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { GateTransition } from "@/components/gate/gate-transition";
 import { generateScenario, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useRepStore } from "@/lib/rep/store";
-import { checkPlanExit, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
+import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
 import type { GateTransition as GateTransitionData } from "@/lib/gate/rules";
@@ -138,26 +138,7 @@ export default function PracticePage() {
     exitedRef.current = false;
     const plan = rep.plan;
     const intervalMs = 1000 / speed;
-
-    async function finishExit(params: {
-      exitPrice: number;
-      exitReason: ExitReason;
-      exitIndex: number;
-      adhered: boolean;
-    }) {
-      if (!repIdRef.current) return;
-      try {
-        await apiExecuteRep(repIdRef.current, params);
-        useRepStore.getState().execute(params);
-        persistSession(scenario, repIdRef.current, revealCountRef.current);
-      } catch (e) {
-        setApiError(
-          e instanceof Error
-            ? `청산 처리에 실패했습니다: ${e.message} — 새로고침 후 다시 시도해주세요.`
-            : "청산 처리에 실패했습니다."
-        );
-      }
-    }
+    const finishExit = submitExit;
 
     const id = setInterval(() => {
       if (exitedRef.current) return;
@@ -171,7 +152,6 @@ export default function PracticePage() {
           exitPrice: scenario.candles[lastIdx].close,
           exitReason: "timeout",
           exitIndex: lastIdx,
-          adhered: true,
         });
         return;
       }
@@ -182,18 +162,15 @@ export default function PracticePage() {
       setRevealCount(prev + 1);
       persistSession(scenario, repIdRef.current, prev + 1);
 
-      const hit = checkPlanExit(candle, plan);
+      // 손절가를 내렸다면 그 값으로 감시한다 — 매 봉마다 최신 값을 읽는다
+      const movedStop = useRepStore.getState().rep?.movedStopPrice;
+      const hit = checkPlanExit(candle, { ...plan, stopPrice: movedStop ?? plan.stopPrice });
       if (hit) {
         exitedRef.current = true;
-        finishExit({ ...hit, exitIndex: nextIndex, adhered: true });
+        finishExit({ ...hit, exitIndex: nextIndex });
       } else if (prev + 1 >= MAX_REPLAY_CANDLES) {
         exitedRef.current = true;
-        finishExit({
-          exitPrice: candle.close,
-          exitReason: "timeout",
-          exitIndex: nextIndex,
-          adhered: true,
-        });
+        finishExit({ exitPrice: candle.close, exitReason: "timeout", exitIndex: nextIndex });
       }
     }, intervalMs);
 
@@ -281,28 +258,43 @@ export default function PracticePage() {
     }
   }
 
-  async function handleManualExit() {
-    if (!scenario || !repIdRef.current) return;
-    exitedRef.current = true;
-    const idx = scenario.decisionIndex + revealCountRef.current - 1;
-    const price = scenario.candles[idx]?.close ?? entryPrice;
+  /** 청산을 서버에 기록한다. 계획을 지켰는지는 실행 기록으로 판정한다(서버도 같은 규칙으로 다시 판정). */
+  async function submitExit(exit: { exitPrice: number; exitReason: ExitReason; exitIndex: number }) {
+    const current = useRepStore.getState().rep;
+    if (!scenario || !repIdRef.current || !current?.plan) return;
+    const stopMoved = current.movedStopPrice !== undefined;
+    const verdict = judgeExecution(scenario, current.plan, { ...exit, stopMoved });
     try {
-      await apiExecuteRep(repIdRef.current, {
-        exitPrice: price,
-        exitReason: "manual",
-        exitIndex: idx,
-        adhered: false,
-      });
-      useRepStore.getState().execute({
-        exitPrice: price,
-        exitReason: "manual",
-        exitIndex: idx,
-        adhered: false,
-      });
+      await apiExecuteRep(repIdRef.current, { ...exit, stopMoved });
+      useRepStore.getState().execute({ ...exit, adhered: verdict.adhered });
       persistSession(scenario, repIdRef.current, revealCountRef.current);
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "청산 처리에 실패했습니다.");
+      setApiError(
+        e instanceof Error
+          ? `청산 처리에 실패했습니다: ${e.message} — 새로고침 후 다시 시도해주세요.`
+          : "청산 처리에 실패했습니다."
+      );
     }
+  }
+
+  function handleManualExit() {
+    if (!scenario || exitedRef.current) return;
+    exitedRef.current = true;
+    const idx = scenario.decisionIndex + revealCountRef.current - 1;
+    submitExit({
+      exitPrice: scenario.candles[idx]?.close ?? entryPrice,
+      exitReason: "manual",
+      exitIndex: idx,
+    });
+  }
+
+  /** 계획에 없던 행동: 손절가를 1R만큼 더 내린다. 한 번만 가능하고, 이후 채점은 D로 고정된다 */
+  function handleMoveStop() {
+    const current = useRepStore.getState().rep;
+    if (!current?.plan || current.movedStopPrice !== undefined) return;
+    const oneR = current.plan.entryPrice - current.plan.stopPrice;
+    useRepStore.getState().moveStop(current.plan.stopPrice - oneR);
+    persistSession(scenario, repIdRef.current, revealCountRef.current);
   }
 
   async function handleGrade(grade: DecisionGrade) {
@@ -402,8 +394,22 @@ export default function PracticePage() {
         : rep.state === "COMMITTED"
           ? "단축키: Space 지금 판다"
           : showOverlay && rep.state === "EXECUTED"
-            ? "단축키: A/B/C/D 채점"
+            ? "단축키: Y 예 · N 아니오 · Enter 확인"
             : "단축키: Enter 다음";
+
+  // 재생 중에는 내가 세운 계획선을 차트에 그려 둔다 (계획 자체라 결과를 미리 알려주지 않는다)
+  const replayLines: ChartPriceLine[] | undefined =
+    rep.state === "COMMITTED" && rep.plan
+      ? [
+          { price: rep.plan.targetPrice, label: "목표", tone: "up" },
+          { price: rep.plan.entryPrice, label: "진입", tone: "neutral" },
+          {
+            price: rep.movedStopPrice ?? rep.plan.stopPrice,
+            label: rep.movedStopPrice !== undefined ? "내린 손절" : "손절",
+            tone: "down",
+          },
+        ]
+      : undefined;
 
   return (
     <div className="flex flex-col gap-4 py-6">
@@ -424,6 +430,7 @@ export default function PracticePage() {
             ref={chartRef}
             candles={visibleCandles(scenario, passRevealed ? MAX_REPLAY_CANDLES : revealCount)}
             label={`연습 #${scenario.seed.toString(16).slice(-4).toUpperCase()}`}
+            priceLines={replayLines}
             markers={
               passRevealed
                 ? [
@@ -474,6 +481,21 @@ export default function PracticePage() {
               <Button variant="outline" className="h-11 w-full" onClick={handleManualExit}>
                 지금 판다 <span className="ml-1.5 text-[11px] opacity-60">Space</span>
               </Button>
+              {rep.movedStopPrice === undefined ? (
+                <button
+                  type="button"
+                  onClick={handleMoveStop}
+                  className="flex flex-col items-center gap-0.5 rounded-md border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground hover:border-warn hover:text-foreground"
+                >
+                  <span className="font-semibold">손절가 1R 더 내리기</span>
+                  <span className="text-[11px]">계획을 바꾸는 행동입니다</span>
+                </button>
+              ) : (
+                <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-[12px] leading-snug text-foreground">
+                  손절가를 <span className="num">{Math.round(rep.movedStopPrice).toLocaleString("ko-KR")}</span>
+                  원으로 내렸습니다. 계획에 없던 행동이라 이번 연습은 D로 기록됩니다.
+                </p>
+              )}
             </div>
           )}
 
@@ -492,11 +514,19 @@ export default function PracticePage() {
         <GradingScreen
           plan={rep.plan}
           exitReason={rep.exitReason}
+          verdict={judgeExecution(scenario, rep.plan, {
+            exitReason: rep.exitReason,
+            exitIndex: rep.exitIndex ?? scenario.decisionIndex,
+            exitPrice: rep.exitPrice ?? entryPrice,
+            stopMoved: rep.movedStopPrice !== undefined,
+          })}
+          movedStopPrice={rep.movedStopPrice}
           candles={scenario.candles.slice(
             Math.max(0, scenario.decisionIndex - 20),
             (rep.exitIndex ?? scenario.decisionIndex) + 1
           )}
           onGrade={handleGrade}
+          error={apiError}
         />
       )}
 
