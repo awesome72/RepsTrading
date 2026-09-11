@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const REASONS = [
   {
     title: "결과가 거짓말을 한다",
@@ -30,6 +32,12 @@ export function Step1Why() {
       <p className="text-[15px] font-semibold text-primary">
         그래서 이 서비스는 순서를 바꿉니다
       </p>
+      <Link
+        href="/tutorial"
+        className="text-[12px] text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground"
+      >
+        글 대신 2분짜리 영상으로 먼저 보기
+      </Link>
     </div>
   );
 }

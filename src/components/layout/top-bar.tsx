@@ -33,6 +33,12 @@ export function TopBar() {
         </span>
         <div className="flex items-center gap-3">
           <Link
+            href="/tutorial"
+            className="text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            사용법
+          </Link>
+          <Link
             href="/glossary"
             className="text-[12px] text-muted-foreground hover:text-foreground"
           >

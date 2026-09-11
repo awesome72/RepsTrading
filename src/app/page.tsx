@@ -70,9 +70,19 @@ export default function Home() {
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <Button asChild size="lg" className="h-12 rounded-full px-8 text-[15px]">
-          <Link href="/onboarding">5분 만에 첫 연습 시작</Link>
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button asChild size="lg" className="h-12 rounded-full px-8 text-[15px]">
+            <Link href="/onboarding">5분 만에 첫 연습 시작</Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="h-12 rounded-full px-8 text-[15px]"
+          >
+            <Link href="/tutorial">사용법 먼저 보기 (2분)</Link>
+          </Button>
+        </div>
         <p className="max-w-md text-center text-[12px] leading-relaxed text-muted-foreground">
           실제 주문이 실행되지 않는 연습용 서비스입니다. 투자 자문이 아닙니다.
         </p>
