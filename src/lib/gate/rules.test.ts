@@ -54,6 +54,18 @@ describe("evaluateGate — G1", () => {
     expect(count.current).toBe(100);
   });
 
+  it("계획을 모두 지켰어도 A(판단 근거까지 분명) 비율이 70% 미만이면 통과하지 못한다", () => {
+    const reps = Array.from({ length: GATE_TARGETS[1].count }, (_, i) =>
+      fakeRep({ i, r: 1, grade: i % 2 === 0 ? "A" : "B", adhered: true })
+    );
+    const evalResult = evaluateGate(1, reps);
+    expect(evalResult.passed).toBe(false);
+    expect(evalResult.requirements.find((r) => r.id === "adherence")!.met).toBe(true);
+    const aGrade = evalResult.requirements.find((r) => r.id === "aGrade")!;
+    expect(aGrade.met).toBe(false);
+    expect(aGrade.current).toBe(50);
+  });
+
   it("가이드 연습은 카운트에서 제외된다", () => {
     const reps = [
       ...Array.from({ length: 5 }, (_, i) => fakeRep({ i, r: 1, grade: "A", adhered: true, guided: true })),

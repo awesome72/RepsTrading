@@ -9,9 +9,13 @@ import {
 import type { Rep } from "@/lib/rep/types";
 import type { GateEvaluation, GateLevel, GateRequirement } from "./types";
 
-/** G1 실행 / G2 판별 / G3 전환 (MASTER 고정값, 변경 금지) */
+/**
+ * G1 실행 / G2 판별 / G3 전환 — 제품 기준값이라 바꾸려면 제품 결정이 필요하다.
+ * G1의 두 번째 조건은 A 비율이다: 계획 준수(A·B)는 이미 "계획 지킴"이 보므로,
+ * 여기서는 판단 근거까지 분명했던 거래(A)가 얼마나 되는지를 본다.
+ */
 export const GATE_TARGETS = {
-  1: { count: 300, adherence: 0.95, abGrade: 0.8 },
+  1: { count: 300, adherence: 0.95, aGrade: 0.7 },
   2: { count: 600, setupAccuracy: 0.7, expectancy: 0.2 },
   3: { extraCount: 100 }, // G2 이후 추가 횟수 — 실계좌 연동 전까지는 안내만
 } as const;
@@ -31,8 +35,7 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
   if (level === 1) {
     const t = GATE_TARGETS[1];
     const adherence = adherenceRate(reps);
-    const dist = gradeDistribution(reps);
-    const abRate = n > 0 ? (dist.A + dist.B) / n : 0;
+    const aRate = n > 0 ? gradeDistribution(reps).A / n : 0;
 
     const requirements: GateRequirement[] = [
       {
@@ -56,13 +59,14 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
           "이 서비스의 1번 성적표는 수익이 아니라 계획을 지켰는지입니다. 실행이 안정되지 않으면 다음 단계(판별)로 넘어가도 의미가 없습니다.",
       },
       {
-        id: "abGrade",
-        label: "A·B 등급",
-        current: pct1(abRate),
-        target: pct1(t.abGrade),
+        id: "aGrade",
+        label: "A 등급 비율",
+        current: pct1(aRate),
+        target: pct1(t.aGrade),
         unit: "%",
-        met: abRate >= t.abGrade,
-        reason: "채점 대부분이 A·B(계획 준수)여야, 지금의 좋은 결과가 우연이 아니라고 볼 수 있습니다.",
+        met: aRate >= t.aGrade,
+        reason:
+          "계획을 지킨 것만으로는 부족합니다. 셋업이 분명하고 손절에 차트 근거가 있었던 거래(A)가 대부분이어야, 좋은 실행이 운이 아니라 판단에서 나왔다고 볼 수 있습니다.",
       },
     ];
     return { level, requirements, passed: requirements.every((r) => r.met) };
