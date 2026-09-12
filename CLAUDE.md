@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-REPS is a Korean-language trading *practice* web app: users judge synthetic candlestick charts, write a plan (setup / stop / target) before buying, watch it replay, grade their own judgment, and only then see the result in R units. Stage gates (G1 실행 → G2 판별 → G3 전환) decide when someone is "ready". The original product spec and principles live in `REPS_바이브코딩_프롬프트팩.md` (MASTER section). Some rules have since changed in code — the code is authoritative (see "Where the spec is outdated").
+REPS is a Korean-language trading *practice* web app: users judge synthetic candlestick charts, write a plan (setup / stop / target) before buying, watch it replay, grade their own judgment, and only then see the result in R units. Stage gates (G1 실행 → G2 판별 → G3 전환) decide when someone is "ready". The original product spec and principles live in `REPS_바이브코딩_프롬프트팩.md` (MASTER section). Some rules have since changed in code — the code is authoritative (see "Spec doc" below).
 
-Stack: Next.js 15.5 App Router + React 19 + TypeScript (strict), Tailwind v4 + shadcn/ui, zustand, lightweight-charts, recharts, Supabase (auth + Postgres), Vitest. Deployed on Vercel; pushing to `main` auto-deploys production.
+Stack: Next.js 15.5 App Router + React 19 + TypeScript (strict), Tailwind v4 + shadcn/ui, zustand, lightweight-charts, recharts, Supabase (auth + Postgres), Vitest. Deployed on Vercel; pushing to `main` auto-deploys production. `.github/workflows/ci.yml` runs lint + `tsc` + vitest + build on every push/PR to `main` — **Vercel's own build does not run the test suite**, so this workflow is the only thing that does.
 
 `AGENTS.md` tells agents to read `node_modules/next/dist/docs/` first — that directory does not exist in this install. Ignore that instruction; this is a standard Next.js 15 App Router project.
 

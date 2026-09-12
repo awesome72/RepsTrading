@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Vercel builds on push but only runs `next build` (type-check + lint) — it never runs vitest.
+# This workflow is the only thing that actually runs the test suite before code reaches main.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholder values so module-level env reads don't blow up during build.
+      # Real secrets live in Vercel; this job never talks to a real Supabase project.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npx tsc --noEmit
+
+      - run: npm test
+
+      - run: npm run build
