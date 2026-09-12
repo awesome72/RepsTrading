@@ -38,7 +38,10 @@ const OPTIONS: {
   label: string;
   desc: string;
   spark?: () => React.ReactElement;
-  locked?: boolean;
+  /** 1단계에서는 고른 셋업 하나만 반복 연습해야 하므로 잠긴다 (setupMixFor 참고) */
+  lockedBelowGate?: number;
+  /** 잠금이 풀렸을 때 보여줄 설명 (없으면 desc를 그대로 쓴다) */
+  unlockedDesc?: string;
 }[] = [
   {
     value: "pullback",
@@ -56,16 +59,20 @@ const OPTIONS: {
     value: "both",
     label: "둘 다",
     desc: "어려우니 나중에 고르세요 (2단계 게이트 이후 해금)",
-    locked: true,
+    unlockedDesc: "이제 두 셋업을 모두 섞어 연습합니다",
+    lockedBelowGate: 2,
   },
 ];
 
 export function Step3Setup({
   value,
   onChange,
+  gateLevel = 1,
 }: {
   value: SetupPreference;
   onChange: (v: SetupPreference) => void;
+  /** 게이트 단계 — "둘 다"는 이 값이 lockedBelowGate 미만일 때만 잠긴다. 생략하면 1단계로 취급한다 */
+  gateLevel?: number;
 }) {
   return (
     <div className="flex flex-col items-center gap-6 text-center">
@@ -73,11 +80,12 @@ export function Step3Setup({
       <div className="grid w-full max-w-xl gap-3 sm:grid-cols-3">
         {OPTIONS.map((opt) => {
           const Spark = opt.spark;
+          const locked = opt.lockedBelowGate !== undefined && gateLevel < opt.lockedBelowGate;
           return (
             <button
               key={opt.value}
               type="button"
-              disabled={opt.locked}
+              disabled={locked}
               onClick={() => onChange(opt.value)}
               className={cn(
                 "flex flex-col gap-2 rounded-lg border p-4 text-left transition-colors disabled:opacity-40",
@@ -88,7 +96,9 @@ export function Step3Setup({
             >
               {Spark ? <Spark /> : <div className="h-10" />}
               <span className="text-[14px] font-semibold text-foreground">{opt.label}</span>
-              <span className="text-[12px] leading-snug text-muted-foreground">{opt.desc}</span>
+              <span className="text-[12px] leading-snug text-muted-foreground">
+                {!locked && opt.unlockedDesc ? opt.unlockedDesc : opt.desc}
+              </span>
             </button>
           );
         })}

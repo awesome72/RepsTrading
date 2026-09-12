@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const accountSize = useAccountStore((s) => s.accountSize);
   const riskPercent = useAccountStore((s) => s.riskPercent);
   const setupPreference = useAccountStore((s) => s.setupPreference);
+  const gateLevel = useAccountStore((s) => s.gateLevel);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +80,7 @@ export default function SettingsPage() {
         onChange={handleRiskChange}
       />
 
-      <Step3Setup value={setupPreference} onChange={handleSetupChange} />
+      <Step3Setup value={setupPreference} onChange={handleSetupChange} gateLevel={gateLevel} />
 
       <div className="flex flex-col items-center gap-2">
         <Button
