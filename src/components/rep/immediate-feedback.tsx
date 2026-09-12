@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import { getFeedback } from "@/lib/feedback/rules";
+import { DAILY_GOAL } from "@/lib/metrics/progress";
+import { useRepLogStore } from "@/lib/rep/log-store";
 import { adherenceRate, requiredSample, tradedReps } from "@/lib/metrics/stats";
 import type { Rep } from "@/lib/rep/types";
 
@@ -27,6 +29,8 @@ function describeJudgement(rep: Rep): string {
 }
 
 export function ImmediateFeedback({ logReps }: ImmediateFeedbackProps) {
+  // 게스트는 5회 한도라 하루 목표(10회)를 쓰지 않는다
+  const guest = useRepLogStore((s) => s.mode === "guest");
   const before = logReps.slice(0, -1);
   const current = logReps.at(-1);
   if (!current) return null;
@@ -73,7 +77,9 @@ export function ImmediateFeedback({ logReps }: ImmediateFeedbackProps) {
 
       <div>
         <p className="text-[11px] text-muted-foreground">다음 한 가지</p>
-        <p className="text-[13px] leading-relaxed text-foreground">{getFeedback(logReps)}</p>
+        <p className="text-[13px] leading-relaxed text-foreground">
+          {getFeedback(logReps, { dailyGoal: guest ? null : DAILY_GOAL })}
+        </p>
       </div>
     </div>
   );

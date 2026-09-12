@@ -4,12 +4,31 @@ import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { adherenceRate, expectancy, requiredSample, tradedReps } from "@/lib/metrics/stats";
+import { DAILY_GOAL, todayTradedCount } from "@/lib/metrics/progress";
 
 const MIN_SAMPLE = 5;
+
+const ROW =
+  "mx-auto flex h-9 w-full max-w-[1280px] items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-4 text-[12px] [scrollbar-width:none] sm:justify-center [&::-webkit-scrollbar]:hidden";
+
+/** 하루 목표 진행 — 게스트는 5회 한도라 쓰지 않는다 */
+function TodayChip({ count }: { count: number }) {
+  const done = count >= DAILY_GOAL;
+  return (
+    <>
+      <span className={`num ${done ? "text-good" : "text-foreground"}`}>
+        오늘 {count}/{DAILY_GOAL}
+        {done && " ✓"}
+      </span>
+      <span className="text-muted-foreground">·</span>
+    </>
+  );
+}
 
 export function StatsBar() {
   const reps = useRepLogStore((s) => s.reps);
   const status = useRepLogStore((s) => s.status);
+  const mode = useRepLogStore((s) => s.mode);
 
   // 서버 기록을 받기 전(또는 로그아웃 상태)에는 "0회"처럼 틀린 숫자를 보여주지 않는다
   if (status !== "ready") {
@@ -17,13 +36,15 @@ export function StatsBar() {
   }
 
   const n = tradedReps(reps).length;
+  const today = mode === "server" ? <TodayChip count={todayTradedCount(reps)} /> : null;
 
   if (n < MIN_SAMPLE) {
     return (
       <div className="w-full border-b border-border bg-surface-2/50">
-        <div className="mx-auto flex h-9 w-full max-w-[1280px] items-center justify-center px-4 text-[12px] text-muted-foreground">
+        <div className={`${ROW} text-muted-foreground`}>
+          {today}
           <span className="num">현재 {n}회</span>
-          <span className="mx-2">·</span>
+          <span>·</span>
           <span>아직 판단하기 이릅니다</span>
         </div>
       </div>
@@ -37,7 +58,8 @@ export function StatsBar() {
 
   return (
     <div className="w-full border-b border-border bg-surface-2/50">
-      <div className="mx-auto flex h-9 w-full max-w-[1280px] items-center justify-center gap-2 px-4 text-[12px] text-foreground">
+      <div className={`${ROW} text-foreground`}>
+        {today}
         <span className="num">현재 {n}회</span>
         <span className="text-muted-foreground">·</span>
         <span className="flex items-center gap-1">

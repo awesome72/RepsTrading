@@ -19,6 +19,8 @@ import { useUser } from "@/lib/auth/use-user";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
 import { GuestNotice } from "@/components/auth/guest-notice";
+import { PaceLine, WeeklySummary } from "@/components/progress/weekly-summary";
+import { paceEstimate, weeklyComparison } from "@/lib/metrics/progress";
 import { evaluateGate } from "@/lib/gate/rules";
 import {
   adherenceRate,
@@ -78,6 +80,10 @@ export default function ProgressPage() {
   }
 
   const guestBanner = guest && <GuestNotice variant="banner" count={decisionReps(reps).length} />;
+  // 이번 단계의 누적 횟수 조건까지 최근 속도로 며칠 남았는지 (게이트는 로그인해야 보인다)
+  const countReq = gateEvaluation.requirements.find((r) => r.id === "count");
+  const pace = countReq ? paceEstimate(reps, countReq.target) : null;
+  const paceLine = gateSynced && countReq && pace && <PaceLine {...pace} target={countReq.target} />;
 
   if (n < MIN_SAMPLE) {
     return (
@@ -88,6 +94,7 @@ export default function ProgressPage() {
           {MIN_SAMPLE}회 이상 연습하면 여기에 통계가 나옵니다. (지금 {n}회)
         </p>
         {gateSynced && <GateProgress evaluation={gateEvaluation} />}
+        {paceLine}
       </div>
     );
   }
@@ -147,6 +154,9 @@ export default function ProgressPage() {
       </div>
 
       {gateSynced && <GateProgress evaluation={gateEvaluation} />}
+      {paceLine}
+
+      <WeeklySummary {...weeklyComparison(reps)} />
 
       <section className="flex flex-col gap-2">
         <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">

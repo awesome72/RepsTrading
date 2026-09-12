@@ -1,12 +1,21 @@
 import type { Rep } from "@/lib/rep/types";
 import { adherenceRate, decisionReps, requiredSample, setupAccuracy } from "@/lib/metrics/stats";
+import { todayTradedCount } from "@/lib/metrics/progress";
+
+export type FeedbackContext = {
+  now: number;
+  /** 하루 목표 횟수. 게스트처럼 목표를 쓰지 않는 경우 null */
+  dailyGoal: number | null;
+};
 
 export type FeedbackRule = {
   id: string;
-  message: string;
+  message: string | ((reps: Rep[], ctx: FeedbackContext) => string);
   /** reps = 방금 끝난 rep까지 포함한 전체 기록 */
   test: (reps: Rep[]) => boolean;
 };
+
+export const DEFAULT_MESSAGE = "잘 진행되고 있습니다. 다음 연습으로 넘어가세요.";
 
 function tradedOnly(reps: Rep[]): Rep[] {
   return reps.filter((r) => r.exitReason !== "pass" && !r.guided && r.result);
@@ -43,6 +52,17 @@ export const FEEDBACK_RULES: FeedbackRule[] = [
     },
   },
   {
+    id: "weak-judgment",
+    message:
+      "계획은 지키고 있지만 판단 근거가 약한 거래(B)가 많습니다. 사기 전에 셋업 모양과 손절 근거부터 확인하세요 — 1단계를 통과하려면 A가 70% 이상이어야 합니다.",
+    // 계획을 지킨 최근 거래 중 A(근거까지 분명) 비율이 게이트 기준(70%)에 못 미치는가
+    test: (reps) => {
+      const followed = lastN(reps, 10).filter((r) => r.decisionGrade === "A" || r.decisionGrade === "B");
+      if (followed.length < 5) return false;
+      return followed.filter((r) => r.decisionGrade === "A").length / followed.length < 0.7;
+    },
+  },
+  {
     id: "setup-recognition",
     message:
       "차트 모양을 구분하는 연습이 더 필요합니다. 눌림목과 돌파의 차이를 다시 보고, 셋업이 아닌 곳은 지나가세요.",
@@ -54,7 +74,12 @@ export const FEEDBACK_RULES: FeedbackRule[] = [
   },
   {
     id: "stable-execution",
-    message: "실행은 안정적입니다. 이제 횟수만 채우면 됩니다.",
+    // 안정된 사용자는 매번 이 규칙에 걸리므로, 같은 문장만 반복되지 않게 오늘 진행 상황을 붙인다
+    message: (reps, ctx) => {
+      const base = "실행은 안정적입니다. 이제 횟수만 채우면 됩니다.";
+      if (ctx.dailyGoal === null) return base;
+      return `${base} 오늘 ${todayTradedCount(reps, ctx.now)}/${ctx.dailyGoal}회.`;
+    },
     test: (reps) => {
       const traded = tradedOnly(reps);
       if (traded.length === 0) return false;
@@ -65,11 +90,21 @@ export const FEEDBACK_RULES: FeedbackRule[] = [
   },
   {
     id: "default",
-    message: "잘 진행되고 있습니다. 다음 연습으로 넘어가세요.",
+    // 매번 같은 문장이 반복되지 않도록, 특별히 짚을 게 없을 땐 오늘 진행 상황을 알려준다
+    message: (reps, ctx) => {
+      if (ctx.dailyGoal === null) return DEFAULT_MESSAGE;
+      const goal = ctx.dailyGoal;
+      const n = todayTradedCount(reps, ctx.now);
+      if (n < goal) return `오늘 ${n}번째 연습입니다. ${goal - n}회 더 하면 오늘 목표(${goal}회)입니다.`;
+      if (n === goal) return `오늘 목표 ${goal}회를 채웠습니다. 여기서 멈춰도 되고, 더 해도 됩니다.`;
+      return `오늘 ${n}회째입니다. 목표는 이미 채웠으니, 집중이 흐려졌다면 쉬어가도 괜찮습니다.`;
+    },
     test: () => true,
   },
 ];
 
-export function getFeedback(reps: Rep[]): string {
-  return (FEEDBACK_RULES.find((rule) => rule.test(reps)) ?? FEEDBACK_RULES.at(-1)!).message;
+export function getFeedback(reps: Rep[], ctx: Partial<FeedbackContext> = {}): string {
+  const context: FeedbackContext = { now: Date.now(), dailyGoal: null, ...ctx };
+  const rule = FEEDBACK_RULES.find((r) => r.test(reps)) ?? FEEDBACK_RULES.at(-1)!;
+  return typeof rule.message === "function" ? rule.message(reps, context) : rule.message;
 }
