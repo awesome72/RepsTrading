@@ -65,5 +65,5 @@ npx vitest run -t "decideGateTransition"      # by test name
 - Colors come from CSS variables in `src/app/globals.css` (dark theme with yellow `--brand`, derived from `DESIGN-binance.md`). Korean market convention: `--up` = red, `--down` = blue — never the US green/red mapping. Numbers use the `num` class (mono, tabular).
 - Keyboard-first practice flow via `useHotkeys` (`lib/hooks/use-hotkeys.ts`), which also matches physical keys so shortcuts work with the Korean IME on.
 
-## Where the spec is outdated
-`REPS_바이브코딩_프롬프트팩.md` still describes pure A–D self-grading and a G1 condition of "A·B ≥ 80%". Current code: adherence is judged from the execution record (+ two judgment questions for A/B), and G1 requires "A 비율 ≥ 70%". Ask the owner before editing the spec doc.
+## Spec doc
+`REPS_바이브코딩_프롬프트팩.md` documents the original 7-stage build plan (Stages 1–7, in imperative prompt form) plus a factual "출시 이후 추가된 기능" section covering everything shipped after Stage 7 (guest mode, settings page, AI advice, server-side gate evaluation, etc.) — kept in sync with the code as of 2026-09-12. Still ask the owner before editing the spec doc further.
