@@ -23,7 +23,7 @@ npx vitest run -t "decideGateTransition"      # by test name
 ```
 
 - If you ran `npm run build`, delete `.next/` before `npm run dev`, otherwise dev throws ENOENT errors from the shared build dir.
-- Env (`.env.local`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. `SUPABASE_SERVICE_ROLE_KEY` is not used by the app — only by ad-hoc admin/test scripts.
+- Env (`.env.local`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. `SUPABASE_SERVICE_ROLE_KEY` is not used by the app — only by ad-hoc admin/test scripts. `ANTHROPIC_API_KEY` powers the AI advice feature (server-only; also set it in the Vercel project's env vars for production) — without it, `/api/reps/[id]/advice` degrades to a 500 with a Korean error message instead of crashing.
 - DB schema: `supabase/migrations/*.sql`. There is no migration runner; SQL is applied by hand in the Supabase SQL editor, so prefer changes that don't need DDL.
 - Login is email magic-link only (no passwords).
 
@@ -53,8 +53,9 @@ npx vitest run -t "decideGateTransition"      # by test name
 ### Gates, metrics, feedback
 - Gate rules: `lib/gate/rules.ts` (`GATE_TARGETS`, `evaluateGate`, `decideGateTransition`, `checkDemotion`). Promotion/demotion is decided server-side in `POST /api/account/gate` after each rep. Gate numbers are product decisions — don't change them without the owner's approval.
 - Stats: `lib/metrics/stats.ts`. `tradedReps` excludes passes and guided (onboarding) reps and drives counts/expectancy/adherence; `setupAccuracy` also counts passes (passing a no-setup chart is correct, buying as "기타" never is).
-- Immediate feedback: `lib/feedback/rules.ts` is a priority-ordered rule list; the first matching rule wins. Deliberately rule-based — no LLM calls.
+- Immediate feedback: `lib/feedback/rules.ts` is a priority-ordered rule list; the first matching rule wins. Deliberately rule-based — no LLM calls (this is a spec principle; keep it that way).
 - Daily goal / weekly comparison / pace ETA: `lib/metrics/progress.ts`.
+- AI coach advice (`lib/ai/advisor.ts`, `POST /api/reps/[id]/advice`, `components/rep/ai-advice.tsx`): a separate, opt-in feature — the user clicks a button on the reveal screen to get a short Claude-generated coaching note. Distinct from the rule-based immediate feedback above, which stays untouched. Only available to logged-in users (guests have no server-side rep row to fetch); requires `rep.state` to be `GRADED`/`REVEALED`, same result-lock boundary as everywhere else. The server rebuilds facts from the DB row + `rebuildPlan`, never trusts client-supplied results.
 
 ## Conventions
 

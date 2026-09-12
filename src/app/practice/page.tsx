@@ -250,6 +250,7 @@ export default function PracticePage() {
 
     try {
       const saved = await apiPassRep({ scenarioSeed: scenario.seed, inputSeconds });
+      repIdRef.current = saved.id;
       useRepLogStore.getState().replaceRep(revealed.id, serverRepToRep(saved));
       checkGateTransition();
     } catch (e) {
@@ -569,6 +570,7 @@ export default function PracticePage() {
               scenario={scenario}
               logReps={logReps}
               onNext={handleNext}
+              repId={repIdRef.current}
             />
           )}
         </div>
@@ -602,6 +604,7 @@ export default function PracticePage() {
               scenario={scenario}
               logReps={logReps}
               onNext={handleNext}
+              repId={repIdRef.current}
             />
           </div>
         </div>

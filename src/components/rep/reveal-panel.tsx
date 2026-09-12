@@ -2,6 +2,7 @@
 
 import { BlindChart, type ChartMarker, type ChartPriceLine } from "@/components/blind-chart";
 import { Button } from "@/components/ui/button";
+import { AiAdvice } from "@/components/rep/ai-advice";
 import { ImmediateFeedback } from "@/components/rep/immediate-feedback";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
@@ -49,6 +50,8 @@ type RevealPanelProps = {
   /** 가이드 연습은 통계에 반영되지 않으므로 "달라진 것" 카드를 보여주지 않는다 */
   hideImmediateFeedback?: boolean;
   nextLabel?: string;
+  /** 서버에 저장된 이 연습의 실제 id — AI 코치 조언에 쓴다. 서버에 없는 연습(가이드 등)은 null/생략 */
+  repId?: string | null;
 };
 
 export function RevealPanel({
@@ -59,6 +62,7 @@ export function RevealPanel({
   coachMessage,
   hideImmediateFeedback,
   nextLabel = "다음 연습",
+  repId = null,
 }: RevealPanelProps) {
   useHotkeys({ Enter: onNext });
 
@@ -94,6 +98,7 @@ export function RevealPanel({
           )}
           <p className="text-[12px] text-muted-foreground">차트에 이후 움직임을 이어서 보여드립니다.</p>
         </div>
+        {!hideImmediateFeedback && <AiAdvice repId={repId} />}
         <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
           {nextLabel}
         </Button>
@@ -162,6 +167,8 @@ export function RevealPanel({
           이번엔 운이 좋았습니다. 이 방식을 반복하면 결국 잃습니다.
         </div>
       )}
+
+      {!hideImmediateFeedback && <AiAdvice repId={repId} />}
 
       {!hideImmediateFeedback && <ImmediateFeedback logReps={logReps} />}
 
