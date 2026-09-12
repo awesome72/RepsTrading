@@ -4,10 +4,13 @@ import { BlindChart, type ChartMarker, type ChartPriceLine } from "@/components/
 import { Button } from "@/components/ui/button";
 import { AiAdvice } from "@/components/rep/ai-advice";
 import { ImmediateFeedback } from "@/components/rep/immediate-feedback";
+import { RevealSurvey } from "@/components/rep/reveal-survey";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
+import { useRepLogStore } from "@/lib/rep/log-store";
 import { getGradeOption } from "@/lib/rep/grade-options";
+import { tradedReps } from "@/lib/metrics/stats";
 import {
   POST_EXIT_CANDLES,
   revealWindow,
@@ -65,6 +68,7 @@ export function RevealPanel({
   repId = null,
 }: RevealPanelProps) {
   useHotkeys({ Enter: onNext });
+  const guest = useRepLogStore((s) => s.mode === "guest");
 
   const coach = coachMessage && (
     <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
@@ -113,6 +117,9 @@ export function RevealPanel({
   const graded = getGradeOption(rep.decisionGrade);
   // 계획을 벗어났을 때만(직접 청산·손절 내림): 계획을 그대로 뒀다면 어떻게 끝났을지
   const planned = rep.adhered === false && rep.plan ? simulatePlan(scenario, rep.plan) : null;
+  // 5회째·20회째 판단(지나간 것 제외)에서만 한 문항 설문을 보여준다
+  const tradedCount = tradedReps(logReps).length;
+  const surveyMilestone = tradedCount === 5 ? 5 : tradedCount === 20 ? 20 : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -171,6 +178,10 @@ export function RevealPanel({
       {!hideImmediateFeedback && <AiAdvice repId={repId} />}
 
       {!hideImmediateFeedback && <ImmediateFeedback logReps={logReps} />}
+
+      {!hideImmediateFeedback && !guest && surveyMilestone && (
+        <RevealSurvey milestone={surveyMilestone} />
+      )}
 
       <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
         {nextLabel}

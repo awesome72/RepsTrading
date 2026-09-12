@@ -56,6 +56,7 @@ npx vitest run -t "decideGateTransition"      # by test name
 - Immediate feedback: `lib/feedback/rules.ts` is a priority-ordered rule list; the first matching rule wins. Deliberately rule-based — no LLM calls (this is a spec principle; keep it that way).
 - Daily goal / weekly comparison / pace ETA: `lib/metrics/progress.ts`.
 - AI coach advice (`lib/ai/advisor.ts`, `POST /api/reps/[id]/advice`, `components/rep/ai-advice.tsx`): a separate, opt-in feature — the user clicks a button on the reveal screen to get a short Claude-generated coaching note. Distinct from the rule-based immediate feedback above, which stays untouched. Only available to logged-in users (guests have no server-side rep row to fetch); requires `rep.state` to be `GRADED`/`REVEALED`, same result-lock boundary as everywhere else. The server rebuilds facts from the DB row + `rebuildPlan`, never trusts client-supplied results.
+- User-reaction measurement: a one-question reveal-screen survey (`components/rep/reveal-survey.tsx`, `POST /api/feedback`, `reveal_surveys` table) fires exactly once at the 5th and 20th traded rep (logged-in users only; the server re-counts `reps` to verify the milestone rather than trusting the client). Onboarding→first-grade completion, reps-per-session, and D1/D7 return don't have app code — they're computed on demand from existing tables via `supabase/analytics-queries.sql`.
 
 ## Conventions
 
