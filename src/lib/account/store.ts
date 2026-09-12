@@ -33,6 +33,8 @@ type AccountStore = LocalCache & {
   setRiskPercent: (n: number) => void;
   setSetupPreference: (p: SetupPreference) => void;
   completeOnboarding: () => void;
+  /** 온보딩 이후 설정 화면에서 값을 바꾼 뒤 호출한다. 실패(주로 게스트의 401)는 호출한 쪽에서 처리한다 */
+  saveSettings: () => Promise<void>;
   syncWithServer: () => Promise<void>;
   setGateLevel: (level: GateLevel) => void;
   reset: () => void;
@@ -71,6 +73,11 @@ export const useAccountStore = create<AccountStore>((set, get) => {
     save(pickCache(get()));
   }
 
+  async function persist() {
+    const { updatedAt } = await apiSaveAccount(pickSettings(get()));
+    update({ settingsUpdatedAt: updatedAt });
+  }
+
   return {
     ...DEFAULT_CACHE,
     gateLevel: 1,
@@ -96,9 +103,12 @@ export const useAccountStore = create<AccountStore>((set, get) => {
     completeOnboarding: () => {
       update({ onboardingCompleted: true, settingsUpdatedAt: Date.now() });
       // 로그인 전이면 401로 실패한다 — 그 경우 로그인 직후 syncWithServer가 올린다
-      apiSaveAccount(pickSettings(get()))
-        .then(({ updatedAt }) => update({ settingsUpdatedAt: updatedAt }))
-        .catch(() => {});
+      persist().catch(() => {});
+    },
+
+    saveSettings: () => {
+      update({ settingsUpdatedAt: Date.now() });
+      return persist();
     },
 
     syncWithServer: async () => {

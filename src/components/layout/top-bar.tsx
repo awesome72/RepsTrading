@@ -40,6 +40,12 @@ export function TopBar() {
           >
             용어 사전
           </Link>
+          <Link
+            href="/settings"
+            className="text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            설정
+          </Link>
           {user ? (
             <button
               type="button"
