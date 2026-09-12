@@ -155,6 +155,7 @@ export function RepCardForm({ entryPrice, accountSize, riskPercent, onSave, savi
               key={opt.value}
               role="button"
               tabIndex={0}
+              aria-pressed={setupChoice === opt.value}
               onClick={() => setSetupChoice(opt.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {

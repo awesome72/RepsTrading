@@ -86,6 +86,7 @@ export function Step3Setup({
               key={opt.value}
               type="button"
               disabled={locked}
+              aria-pressed={value === opt.value}
               onClick={() => onChange(opt.value)}
               className={cn(
                 "flex flex-col gap-2 rounded-lg border p-4 text-left transition-colors disabled:opacity-40",
