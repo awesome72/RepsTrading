@@ -16,6 +16,9 @@ const SETUP_ANSWER_LABEL: Record<SetupLabel, string> = {
   none: "셋업 없음",
 };
 
+const RATE_LIMIT_WINDOW_MINUTES = 10;
+const RATE_LIMIT_MAX_REQUESTS = 5;
+
 /**
  * 결과 공개 후 사용자가 직접 요청할 때만 호출되는 AI 코치 조언.
  * 매 판단마다 자동으로 뜨는 즉시 피드백(lib/feedback/rules.ts)과는 다른 별도 기능이다 —
@@ -30,6 +33,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!user) {
     return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
   }
+
+  // 짧은 시간에 반복 호출로 Anthropic API 비용이 늘어나는 것을 막는다.
+  // 마이그레이션이 아직 적용되지 않아 테이블이 없으면(개발 환경 등) 제한 없이 통과시킨다.
+  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+  const { count, error: rateLimitError } = await supabase
+    .from("ai_advice_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .gte("created_at", since);
+  if (!rateLimitError && (count ?? 0) >= RATE_LIMIT_MAX_REQUESTS) {
+    return NextResponse.json(
+      {
+        error: `AI 조언 요청이 너무 많습니다. ${RATE_LIMIT_WINDOW_MINUTES}분 후 다시 시도해주세요.`,
+      },
+      { status: 429 }
+    );
+  }
+  await supabase.from("ai_advice_requests").insert({ user_id: user.id });
 
   const { data: rep, error: fetchError } = await supabase
     .from("reps")
