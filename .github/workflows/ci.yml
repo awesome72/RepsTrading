@@ -28,8 +28,10 @@ jobs:
 
       - run: npm run lint
 
-      - run: npx tsc --noEmit
-
       - run: npm test
 
+      # `next build` does the type-check (next-env.d.ts references .next/types/routes.d.ts,
+      # which only exists after a build/dev run — a standalone `tsc --noEmit` fails on a
+      # fresh checkout before that file is generated). This is also the same command Vercel
+      # runs, so a failure here means the real deploy would fail too.
       - run: npm run build
