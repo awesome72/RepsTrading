@@ -2,20 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import type { BlindChartHandle, ChartPriceLine } from "@/components/blind-chart";
+import type { BlindChartHandle } from "@/components/blind-chart";
 import { EntryDecision } from "@/components/rep/entry-decision";
 import { RepCardForm } from "@/components/rep/rep-card-form";
 import { GradingScreen } from "@/components/rep/grading-screen";
 import { RevealPanel } from "@/components/rep/reveal-panel";
 import { Button } from "@/components/ui/button";
 import { GateTransition } from "@/components/gate/gate-transition";
-import {
-  generateScenario,
-  pickSeedForMix,
-  setupMixFor,
-  visibleCandles,
-  type Scenario,
-} from "@/lib/market/scenario";
+import { visibleCandles, type Scenario } from "@/lib/market/scenario";
+import { newPracticeScenario, scheduleIdle } from "@/lib/market/next-scenario";
 import { useRepStore } from "@/lib/rep/store";
 import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
 import { GUEST_REP_LIMIT, useRepLogStore } from "@/lib/rep/log-store";
@@ -34,67 +29,26 @@ import {
   apiRevealRep,
   serverRepToRep,
 } from "@/lib/rep/api";
+import {
+  clearPracticeSession,
+  persistPracticeSession,
+  tryRestorePracticeSession,
+} from "@/lib/rep/session-storage";
+import {
+  practiceHint,
+  practicePassRevealed,
+  practiceReplayLines,
+  practiceShowOverlay,
+  practiceTopText,
+} from "@/lib/rep/practice-ui";
 import { cn } from "@/lib/utils";
-import type { DecisionGrade, ExitReason, Plan, Rep } from "@/lib/rep/types";
+import type { DecisionGrade, ExitReason, Plan } from "@/lib/rep/types";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
   ssr: false,
 });
 
 const SPEEDS = [1, 2, 4] as const;
-const SESSION_KEY = "reps.activeSession.v1";
-
-type PersistedSession = {
-  scenarioSeed: number;
-  repId: string | null;
-  revealCount: number;
-  rep: Rep;
-};
-
-/** 재생 중(COMMITTED/EXECUTED) 새로고침해도 이어서 볼 수 있도록 세션에 남긴다 */
-function persistSession(scenario: Scenario | null, repId: string | null, revealCount: number) {
-  const rep = useRepStore.getState().rep;
-  try {
-    if (!scenario || !rep || rep.state === "WATCHING" || rep.state === "REVEALED") {
-      sessionStorage.removeItem(SESSION_KEY);
-      return;
-    }
-    const payload: PersistedSession = { scenarioSeed: scenario.seed, repId, revealCount, rep };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
-  } catch {
-    // sessionStorage 접근 불가 — 복구 기능만 못 쓸 뿐, 연습 자체는 계속된다
-  }
-}
-
-/** 브라우저가 한가할 때 다음 시나리오를 미리 만들어 연습 사이 대기를 없앤다 */
-function scheduleIdle(cb: () => void) {
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    window.requestIdleCallback(cb);
-  } else {
-    setTimeout(cb, 0);
-  }
-}
-
-/** 지금 단계와 온보딩에서 고른 셋업에 맞는 차트를 만든다 (1단계는 고른 셋업 + 셋업 없음만) */
-function newScenario(): Scenario {
-  const { setupPreference, gateLevel } = useAccountStore.getState();
-  return generateScenario(pickSeedForMix(setupMixFor(setupPreference, gateLevel)));
-}
-
-function tryRestoreSession(): { scenario: Scenario; repId: string | null; revealCount: number; rep: Rep } | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedSession;
-    // 채점까지 끝난 rep은 복구 대상이 아니다 (다음 연습으로 넘어가면 그만이다)
-    const resumable = parsed.rep && (parsed.rep.state === "COMMITTED" || parsed.rep.state === "EXECUTED");
-    if (!resumable) return null;
-    const scenario = generateScenario(parsed.scenarioSeed);
-    return { scenario, repId: parsed.repId, revealCount: parsed.revealCount, rep: parsed.rep };
-  } catch {
-    return null;
-  }
-}
 
 export default function PracticePage() {
   const { user, loading: userLoading } = useUser();
@@ -134,7 +88,7 @@ export default function PracticePage() {
 
   useEffect(() => {
     if (userLoading || !accountReady) return;
-    const restored = tryRestoreSession();
+    const restored = tryRestorePracticeSession();
     // 게스트 연습(서버 id 없음)은 게스트로, 계정 연습은 로그인 상태로만 이어간다 — 섞이면 청산을 기록할 곳이 없다
     if (restored && (restored.repId === null) === (userId === null)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -147,7 +101,7 @@ export default function PracticePage() {
     }
 
     // 매번 랜덤이라 SSR과 절대 일치할 수 없다 — 마운트 후 클라이언트에서만 생성한다.
-    const next = newScenario();
+    const next = newPracticeScenario();
     setScenario(next);
     useRepStore
       .getState()
@@ -182,7 +136,7 @@ export default function PracticePage() {
       chartRef.current?.advance([candle]);
       revealCountRef.current = prev + 1;
       setRevealCount(prev + 1);
-      persistSession(scenario, repIdRef.current, prev + 1);
+      persistPracticeSession(scenario, repIdRef.current, prev + 1);
 
       // 손절가를 내렸다면 그 값으로 감시한다 — 매 봉마다 최신 값을 읽는다
       const movedStop = useRepStore.getState().rep?.movedStopPrice;
@@ -209,7 +163,7 @@ export default function PracticePage() {
       !nextScenarioRef.current
     ) {
       scheduleIdle(() => {
-        nextScenarioRef.current = newScenario();
+        nextScenarioRef.current = newPracticeScenario();
       });
     }
     // rep 전체가 아니라 state 변화에만 반응한다 — rep은 매 전이마다 참조가 바뀐다.
@@ -268,7 +222,7 @@ export default function PracticePage() {
     setApiError(null);
     if (guest) {
       useRepStore.getState().commit(plan);
-      persistSession(scenario, null, 0);
+      persistPracticeSession(scenario, null, 0);
       setShowForm(false);
       return;
     }
@@ -284,7 +238,7 @@ export default function PracticePage() {
       });
       repIdRef.current = created.id;
       useRepStore.getState().commit(plan);
-      persistSession(scenario, created.id, 0);
+      persistPracticeSession(scenario, created.id, 0);
       setShowForm(false);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "계획 저장에 실패했습니다.");
@@ -303,7 +257,7 @@ export default function PracticePage() {
     try {
       if (!guest) await apiExecuteRep(repIdRef.current!, { ...exit, stopMoved });
       useRepStore.getState().execute({ ...exit, adhered: verdict.adhered });
-      persistSession(scenario, repIdRef.current, revealCountRef.current);
+      persistPracticeSession(scenario, repIdRef.current, revealCountRef.current);
     } catch (e) {
       setApiError(
         e instanceof Error
@@ -330,7 +284,7 @@ export default function PracticePage() {
     if (!current?.plan || current.movedStopPrice !== undefined) return;
     const oneR = current.plan.entryPrice - current.plan.stopPrice;
     useRepStore.getState().moveStop(current.plan.stopPrice - oneR);
-    persistSession(scenario, repIdRef.current, revealCountRef.current);
+    persistPracticeSession(scenario, repIdRef.current, revealCountRef.current);
   }
 
   async function handleGrade(grade: DecisionGrade) {
@@ -340,11 +294,7 @@ export default function PracticePage() {
       useRepStore.getState().grade(grade);
       const revealed = useRepStore.getState().rep;
       if (revealed) useRepLogStore.getState().addRep(revealed);
-      try {
-        sessionStorage.removeItem(SESSION_KEY);
-      } catch {
-        // ignore
-      }
+      clearPracticeSession();
       return;
     }
     const repId = repIdRef.current;
@@ -367,18 +317,14 @@ export default function PracticePage() {
         checkGateTransition();
       }
       // 채점이 끝났으니 새로고침 복구 대상에서 제외한다
-      try {
-        sessionStorage.removeItem(SESSION_KEY);
-      } catch {
-        // ignore
-      }
+      clearPracticeSession();
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "채점 처리에 실패했습니다.");
     }
   }
 
   function handleNext() {
-    const next = nextScenarioRef.current ?? newScenario();
+    const next = nextScenarioRef.current ?? newPracticeScenario();
     nextScenarioRef.current = null;
     repIdRef.current = null;
     revealCountRef.current = 0;
@@ -387,11 +333,7 @@ export default function PracticePage() {
     setRevealCount(0);
     setShowForm(false);
     setScenario(next);
-    try {
-      sessionStorage.removeItem(SESSION_KEY);
-    } catch {
-      // ignore
-    }
+    clearPracticeSession();
     useRepStore
       .getState()
       .startWatching({ scenarioId: next.id, seed: next.seed, setupLabel: next.setupLabel });
@@ -428,45 +370,11 @@ export default function PracticePage() {
     );
   }
 
-  const showOverlay =
-    rep.exitReason !== "pass" &&
-    (rep.state === "EXECUTED" || rep.state === "GRADED" || rep.state === "REVEALED");
-
-  // 지나가기는 결과를 잠글 게 없으므로 결정 직후 이후 움직임을 바로 펼쳐 보여준다
-  const passRevealed = rep.exitReason === "pass" && rep.state === "REVEALED";
-
-  const topText = showForm
-    ? "사기 전에 계획을 적으세요."
-    : rep.state === "COMMITTED"
-      ? "계획대로 진행되는지 지켜보세요."
-      : passRevealed
-        ? "지나간 뒤 이렇게 움직였습니다."
-        : "이 차트를 보고 판단하세요.";
-
-  const hint =
-    rep.state === "WATCHING" && !showForm
-      ? "단축키: B 산다 · S 지나간다"
-      : rep.state === "WATCHING" && showForm
-        ? "단축키: 1/2/3 셋업 선택 · Enter 저장"
-        : rep.state === "COMMITTED"
-          ? "단축키: Space 지금 판다"
-          : showOverlay && rep.state === "EXECUTED"
-            ? "단축키: Y 예 · N 아니오 · Enter 확인"
-            : "단축키: Enter 다음";
-
-  // 재생 중에는 내가 세운 계획선을 차트에 그려 둔다 (계획 자체라 결과를 미리 알려주지 않는다)
-  const replayLines: ChartPriceLine[] | undefined =
-    rep.state === "COMMITTED" && rep.plan
-      ? [
-          { price: rep.plan.targetPrice, label: "목표", tone: "up" },
-          { price: rep.plan.entryPrice, label: "진입", tone: "neutral" },
-          {
-            price: rep.movedStopPrice ?? rep.plan.stopPrice,
-            label: rep.movedStopPrice !== undefined ? "내린 손절" : "손절",
-            tone: "down",
-          },
-        ]
-      : undefined;
+  const showOverlay = practiceShowOverlay(rep);
+  const passRevealed = practicePassRevealed(rep);
+  const topText = practiceTopText(rep, showForm);
+  const hint = practiceHint(rep, showForm, showOverlay);
+  const replayLines = practiceReplayLines(rep);
 
   return (
     <div className="flex flex-col gap-4 py-6">
