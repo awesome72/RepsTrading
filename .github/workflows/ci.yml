@@ -21,7 +21,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # jsdom 30 / undici 8's CacheStorage needs a newer Node webidl internal
+          # (`markAsUncloneable`) that Node 20 doesn't have - matches the Node version
+          # this was developed and verified against locally.
+          node-version: 24
           cache: npm
 
       - run: npm ci
