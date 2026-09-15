@@ -99,6 +99,9 @@ export async function GET(request: Request) {
   if (grade && !VALID_GRADES.includes(grade as (typeof VALID_GRADES)[number])) {
     return NextResponse.json({ error: "잘못된 grade입니다." }, { status: 400 });
   }
+  if (before !== null && Number.isNaN(Date.parse(before))) {
+    return NextResponse.json({ error: "잘못된 before입니다." }, { status: 400 });
+  }
 
   let query = supabase.from("reps").select("*").order("committed_at", { ascending: false });
   if (before) query = query.lt("committed_at", before);

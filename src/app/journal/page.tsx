@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useUser } from "@/lib/auth/use-user";
@@ -72,17 +72,25 @@ export default function JournalPage() {
     [setupFilter, gradeFilter]
   );
 
+  // 필터가 바뀌는 순간 이전 필터로 보낸 요청(특히 "더 보기")의 응답은 버린다 —
+  // 늦게 도착한 옛 결과가 새 목록 뒤에 붙으면 두 필터가 섞인 표가 된다.
+  const generationRef = useRef(0);
+
   // 필터가 바뀌면 처음부터 다시 받는다 — 로그인 여부가 바뀔 때도 마찬가지
   useEffect(() => {
     if (!user) return;
+    const gen = ++generationRef.current;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReps(null);
+    setLoadingMore(false);
     apiListRepsPage({ ...filterParams, limit: PAGE_SIZE })
       .then((r) => {
+        if (gen !== generationRef.current) return;
         setReps(r.reps);
         setHasMore(r.hasMore);
       })
       .catch(() => {
+        if (gen !== generationRef.current) return;
         setReps([]);
         setHasMore(false);
       });
@@ -92,13 +100,18 @@ export default function JournalPage() {
     if (!reps || loadingMore) return;
     const before = reps.at(-1)?.committed_at;
     if (!before) return;
+    const gen = generationRef.current;
     setLoadingMore(true);
     apiListRepsPage({ ...filterParams, limit: PAGE_SIZE, before })
       .then((r) => {
+        if (gen !== generationRef.current) return;
         setReps((prev) => [...(prev ?? []), ...r.reps]);
         setHasMore(r.hasMore);
       })
-      .finally(() => setLoadingMore(false));
+      .catch(() => {})
+      .finally(() => {
+        if (gen === generationRef.current) setLoadingMore(false);
+      });
   }
 
   async function exportCsv() {
@@ -167,7 +180,21 @@ export default function JournalPage() {
         </select>
       </div>
 
-      {reps.length === 0 ? (
+      {reps.length === 0 && (setupFilter !== "all" || gradeFilter !== "all") ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
+          <p>이 조건에 맞는 기록이 없습니다.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSetupFilter("all");
+              setGradeFilter("all");
+            }}
+            className="rounded-md border border-border bg-card px-4 py-2 text-[13px] text-foreground"
+          >
+            필터 해제
+          </button>
+        </div>
+      ) : reps.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
           <p>아직 연습 기록이 없습니다. 첫 연습은 2분이면 끝납니다.</p>
           <Link
