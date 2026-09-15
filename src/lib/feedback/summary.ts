@@ -1,4 +1,5 @@
 import { adherenceRate, requiredSample, tradedReps } from "@/lib/metrics/stats";
+import { decisionKind, typicalDecisionSeconds } from "@/lib/metrics/decision-time";
 import { getFeedback } from "./rules";
 import type { Rep } from "@/lib/rep/types";
 
@@ -9,6 +10,8 @@ export type HistorySummary = {
   remainingAfter: number | null;
   /** 이번 rep까지 포함한 누적 거래 수(지나간 것·가이드 제외) — 게이트 "누적 횟수"와 같은 기준 */
   tradedAfter: number;
+  /** 이번과 같은 종류(지나가기/매매) 이전 판단들의 결정 시간 중앙값(초). 표본 부족이면 null */
+  typicalDecisionSeconds: number | null;
   /** "다음 한 가지" 문구 — getFeedback(before + [current], ...) */
   message: string;
 };
@@ -36,6 +39,7 @@ export function computeHistorySummary(
       ? Math.max(0, Math.ceil(nStarAfter - tradedReps(after).length))
       : null,
     tradedAfter: tradedReps(after).length,
+    typicalDecisionSeconds: typicalDecisionSeconds(before, decisionKind(current)),
     message: getFeedback(after, { now, dailyGoal }),
   };
 }

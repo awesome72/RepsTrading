@@ -4,6 +4,7 @@ import { DAILY_GOAL } from "@/lib/metrics/progress";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { useAccountStore } from "@/lib/account/store";
 import { GATE_LABEL, gateCountTarget } from "@/lib/gate/rules";
+import { decisionKind, describeDecisionPace } from "@/lib/metrics/decision-time";
 import type { GateLevel } from "@/lib/gate/types";
 import type { Rep } from "@/lib/rep/types";
 
@@ -75,6 +76,11 @@ export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedba
   const adherenceAfter = computed.adherenceAfter * 100;
   const { remainingBefore, remainingAfter } = computed;
 
+  const pace =
+    typeof current.inputSeconds === "number" && current.inputSeconds > 0
+      ? describeDecisionPace(current.inputSeconds, computed.typicalDecisionSeconds, decisionKind(current))
+      : null;
+
   // 게이트는 로그인 사용자에게만 있고, 지나간 판단은 누적 횟수에 들어가지 않는다
   const showGateTick = !guest && !isPass && gateSynced;
 
@@ -88,6 +94,15 @@ export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedba
         <div>
           <p className="text-[11px] text-muted-foreground">이번 판정</p>
           <p className="text-[13px] leading-relaxed text-foreground">{describeJudgement(current)}</p>
+        </div>
+      )}
+
+      {pace && (
+        <div>
+          <p className="text-[11px] text-muted-foreground">결정 속도</p>
+          <p className={cn("text-[13px] leading-relaxed", pace.tone === "fast" ? "text-warn" : "text-foreground")}>
+            {pace.text}
+          </p>
         </div>
       )}
 

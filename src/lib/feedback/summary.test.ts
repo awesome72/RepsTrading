@@ -45,6 +45,15 @@ describe("computeHistorySummary", () => {
     expect(computeHistorySummary([tradedRep(1, true)], pass, null).tradedAfter).toBe(1);
   });
 
+  it("typicalDecisionSeconds는 이번 rep을 빼고 같은 종류끼리만 잰다", () => {
+    const withTime = (r: Rep, s: number): Rep => ({ ...r, inputSeconds: s });
+    const pass = (s: number): Rep => withTime({ ...tradedRep(0, true), exitReason: "pass" }, s);
+    const before = [withTime(tradedRep(1, true), 30), withTime(tradedRep(1, true), 40), withTime(tradedRep(1, true), 50), pass(3), pass(5)];
+    expect(computeHistorySummary(before, withTime(tradedRep(1, true), 999), null).typicalDecisionSeconds).toBe(40);
+    // 지나가기 표본은 2개뿐이라 아직 "평소"가 없다
+    expect(computeHistorySummary(before, pass(4), null).typicalDecisionSeconds).toBeNull();
+  });
+
   it("dailyGoal이 있으면 오늘 진행 상황이 반영된 기본 메시지가 나온다", () => {
     const now = new Date(2026, 8, 15, 12).getTime();
     const s = computeHistorySummary([], tradedRep(1, true), 10, now);
