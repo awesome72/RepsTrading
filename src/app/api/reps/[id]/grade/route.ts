@@ -57,14 +57,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const rResult = rMultiple(plan.entryPrice, rep.exit_price, rep.plan_stop);
 
+  // 채점 직후 곧바로 공개한다 (클라이언트 로컬 상태 머신도 이미 grade에서 바로 reveal한다 —
+  // 별도의 "결과 보기" 단계가 없으므로 GRADED를 거쳐가는 왕복을 둘 필요가 없다).
   const { error: updateError } = await supabase
     .from("reps")
-    .update({ state: "GRADED", decision_grade, r_result: rResult })
+    .update({ state: "REVEALED", decision_grade, r_result: rResult })
     .eq("id", id);
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ state: "GRADED", decision_grade, r_result: rResult });
+  return NextResponse.json({ state: "REVEALED", decision_grade, r_result: rResult });
 }

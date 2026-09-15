@@ -37,8 +37,7 @@ npx vitest run -t "decideGateTransition"      # by test name
 
 - `POST /api/reps` commit (plan becomes immutable — DB trigger rejects `plan_*` updates and backward state moves)
 - `POST /api/reps/[id]/execute` → `validateExit` + `judgeExecution` (server derives `adhered`; the client's claim is ignored)
-- `POST /api/reps/[id]/grade` → rejects a grade better than the execution allows (`isGradeAllowed`), computes `r_result`
-- `POST /api/reps/[id]/reveal`; `GET /api/reps` and `/api/reps/[id]` strip `exit_price` / `r_result` before GRADED
+- `POST /api/reps/[id]/grade` → rejects a grade better than the execution allows (`isGradeAllowed`), computes `r_result`, and writes state straight to `REVEALED` in the same request (the client always reveals immediately after grading — there's no separate "view result" step — so there's no standalone reveal endpoint); `GET /api/reps` and `/api/reps/[id]` strip `exit_price` / `r_result` before GRADED
 - `POST /api/reps/pass` stores a "지나간다" in one step (placeholder plan: setup `other`, stop = entry, 0R — same convention as `machine.passRep`)
 
 ### Grading and adherence (shared client/server logic)

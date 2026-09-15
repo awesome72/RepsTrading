@@ -21,14 +21,7 @@ import type { GateTransition as GateTransitionData } from "@/lib/gate/rules";
 import { apiEvaluateGate } from "@/lib/account/api";
 import { useUser } from "@/lib/auth/use-user";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
-import {
-  apiCommitRep,
-  apiExecuteRep,
-  apiGradeRep,
-  apiPassRep,
-  apiRevealRep,
-  serverRepToRep,
-} from "@/lib/rep/api";
+import { apiCommitRep, apiExecuteRep, apiGradeRep, apiPassRep, serverRepToRep } from "@/lib/rep/api";
 import {
   clearPracticeSession,
   persistPracticeSession,
@@ -301,7 +294,6 @@ export default function PracticePage() {
     if (!repId) return;
     try {
       const graded = await apiGradeRep(repId, grade);
-      await apiRevealRep(repId);
 
       useRepStore.getState().grade(grade);
       // 화면에 보이는 R은 서버가 계산한 값을 그대로 쓴다 (클라이언트 재계산에 의존하지 않는다).

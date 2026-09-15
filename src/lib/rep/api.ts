@@ -80,11 +80,6 @@ export async function apiGradeRep(
   return asJson(res);
 }
 
-export async function apiRevealRep(id: string): Promise<ServerRep> {
-  const res = await fetch(`/api/reps/${id}/reveal`, { method: "POST" });
-  return asJson(res);
-}
-
 export async function apiPassRep(params: {
   scenarioSeed: number;
   inputSeconds: number;
