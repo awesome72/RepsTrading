@@ -35,6 +35,7 @@ import {
   practiceTopText,
 } from "@/lib/rep/practice-ui";
 import { cn } from "@/lib/utils";
+import type { HistorySummary } from "@/lib/feedback/summary";
 import type { DecisionGrade, ExitReason, Plan } from "@/lib/rep/types";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
@@ -52,6 +53,9 @@ export default function PracticePage() {
   const [speed, setSpeed] = useState<number>(1);
   const [apiError, setApiError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // 로그인 사용자만 채점·지나가기 응답에 들어있다 — 게스트는 undefined로 두어
+  // ImmediateFeedback이 logReps로 직접 계산하는 기존 경로로 물러나게 한다.
+  const [feedbackSummary, setFeedbackSummary] = useState<HistorySummary | undefined>(undefined);
 
   const chartRef = useRef<BlindChartHandle>(null);
   const revealCountRef = useRef(0);
@@ -198,6 +202,7 @@ export default function PracticePage() {
     try {
       const saved = await apiPassRep({ scenarioSeed: scenario.seed, inputSeconds });
       repIdRef.current = saved.id;
+      setFeedbackSummary(saved.feedback);
       useRepLogStore.getState().replaceRep(revealed.id, serverRepToRep(saved));
       checkGateTransition();
     } catch (e) {
@@ -294,6 +299,7 @@ export default function PracticePage() {
     if (!repId) return;
     try {
       const graded = await apiGradeRep(repId, grade);
+      setFeedbackSummary(graded.feedback);
 
       useRepStore.getState().grade(grade);
       // 화면에 보이는 R은 서버가 계산한 값을 그대로 쓴다 (클라이언트 재계산에 의존하지 않는다).
@@ -324,6 +330,7 @@ export default function PracticePage() {
     setApiError(null);
     setRevealCount(0);
     setShowForm(false);
+    setFeedbackSummary(undefined);
     setScenario(next);
     clearPracticeSession();
     useRepStore
@@ -471,6 +478,7 @@ export default function PracticePage() {
               logReps={logReps}
               onNext={handleNext}
               repId={repIdRef.current}
+              feedbackSummary={feedbackSummary}
             />
           )}
         </div>
@@ -505,6 +513,7 @@ export default function PracticePage() {
               logReps={logReps}
               onNext={handleNext}
               repId={repIdRef.current}
+              feedbackSummary={feedbackSummary}
             />
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { generateScenario } from "@/lib/market/scenario";
+import type { HistorySummary } from "@/lib/feedback/summary";
 import type { GateEvaluation, GateLevel } from "@/lib/gate/types";
 import type { PeriodStats } from "@/lib/metrics/progress";
 import type { GradeDistribution } from "@/lib/metrics/stats";
@@ -74,7 +75,12 @@ export async function apiExecuteRep(
 export async function apiGradeRep(
   id: string,
   decisionGrade: DecisionGrade
-): Promise<{ state: string; decision_grade: DecisionGrade; r_result: number }> {
+): Promise<{
+  state: string;
+  decision_grade: DecisionGrade;
+  r_result: number;
+  feedback?: HistorySummary;
+}> {
   const res = await fetch(`/api/reps/${id}/grade`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -86,7 +92,7 @@ export async function apiGradeRep(
 export async function apiPassRep(params: {
   scenarioSeed: number;
   inputSeconds: number;
-}): Promise<ServerRep> {
+}): Promise<ServerRep & { feedback?: HistorySummary }> {
   const res = await fetch("/api/reps/pass", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

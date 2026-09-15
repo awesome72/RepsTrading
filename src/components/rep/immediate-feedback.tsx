@@ -1,13 +1,19 @@
 import { cn } from "@/lib/utils";
-import { getFeedback } from "@/lib/feedback/rules";
+import { computeHistorySummary, type HistorySummary } from "@/lib/feedback/summary";
 import { DAILY_GOAL } from "@/lib/metrics/progress";
 import { useRepLogStore } from "@/lib/rep/log-store";
-import { adherenceRate, requiredSample, tradedReps } from "@/lib/metrics/stats";
 import type { Rep } from "@/lib/rep/types";
 
 type ImmediateFeedbackProps = {
-  /** 방금 끝난 rep까지 포함된 전체 기록 (마지막 원소가 이번 rep) */
-  logReps: Rep[];
+  /** 방금 끝난 판단 */
+  current: Rep;
+  /**
+   * 게스트일 때만 필요하다 — 방금 끝난 rep까지 포함된 전체 기록(마지막 원소가 current)에서
+   * 직접 계산한다. 로그인 사용자는 summary가 항상 있으므로 이 값은 안 쓰인다.
+   */
+  logReps?: Rep[];
+  /** 로그인 사용자: 채점·지나가기 API가 이미 계산해 보내준 값 — 있으면 이걸 그대로 쓴다 */
+  summary?: HistorySummary;
 };
 
 function describeJudgement(rep: Rep): string {
@@ -28,27 +34,18 @@ function describeJudgement(rep: Rep): string {
   }
 }
 
-export function ImmediateFeedback({ logReps }: ImmediateFeedbackProps) {
+export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedbackProps) {
   // 게스트는 5회 한도라 하루 목표(10회)를 쓰지 않는다
   const guest = useRepLogStore((s) => s.mode === "guest");
-  const before = logReps.slice(0, -1);
-  const current = logReps.at(-1);
-  if (!current) return null;
   // 지나간 판단은 "정답 셋업" 여부를 RevealPanel이 이미 별도 박스로 보여준다 —
   // 여기서 등급(A~D) 기준 문구를 또 보여주면 어긋난 소리를 하게 된다 (지나가기는 서버가 등급을 항상 A로 저장한다).
   const isPass = current.exitReason === "pass";
 
-  const adherenceBefore = adherenceRate(before) * 100;
-  const adherenceAfter = adherenceRate(logReps) * 100;
+  const computed = summary ?? computeHistorySummary(logReps?.slice(0, -1) ?? [], current, guest ? null : DAILY_GOAL);
 
-  const nStarBefore = requiredSample(before);
-  const nStarAfter = requiredSample(logReps);
-  const remainingBefore = Number.isFinite(nStarBefore)
-    ? Math.max(0, Math.ceil(nStarBefore - tradedReps(before).length))
-    : null;
-  const remainingAfter = Number.isFinite(nStarAfter)
-    ? Math.max(0, Math.ceil(nStarAfter - tradedReps(logReps).length))
-    : null;
+  const adherenceBefore = computed.adherenceBefore * 100;
+  const adherenceAfter = computed.adherenceAfter * 100;
+  const { remainingBefore, remainingAfter } = computed;
 
   const adherenceImproved = adherenceAfter >= adherenceBefore;
   const remainingImproved =
@@ -82,9 +79,7 @@ export function ImmediateFeedback({ logReps }: ImmediateFeedbackProps) {
 
       <div>
         <p className="text-[11px] text-muted-foreground">다음 한 가지</p>
-        <p className="text-[13px] leading-relaxed text-foreground">
-          {getFeedback(logReps, { dailyGoal: guest ? null : DAILY_GOAL })}
-        </p>
+        <p className="text-[13px] leading-relaxed text-foreground">{computed.message}</p>
       </div>
     </div>
   );

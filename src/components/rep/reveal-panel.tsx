@@ -4,6 +4,7 @@ import { BlindChart, type ChartMarker, type ChartPriceLine } from "@/components/
 import { Button } from "@/components/ui/button";
 import { AiAdvice } from "@/components/rep/ai-advice";
 import { ImmediateFeedback } from "@/components/rep/immediate-feedback";
+import type { HistorySummary } from "@/lib/feedback/summary";
 import { RevealSurvey } from "@/components/rep/reveal-survey";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
@@ -55,6 +56,8 @@ type RevealPanelProps = {
   nextLabel?: string;
   /** 서버에 저장된 이 연습의 실제 id — AI 코치 조언에 쓴다. 서버에 없는 연습(가이드 등)은 null/생략 */
   repId?: string | null;
+  /** 로그인 사용자: 채점·지나가기 API가 이미 계산해 보내준 "달라진 것" 값 — 게스트는 없다(logReps로 직접 계산) */
+  feedbackSummary?: HistorySummary;
 };
 
 export function RevealPanel({
@@ -66,6 +69,7 @@ export function RevealPanel({
   hideImmediateFeedback,
   nextLabel = "다음 연습",
   repId = null,
+  feedbackSummary,
 }: RevealPanelProps) {
   useHotkeys({ Enter: onNext });
   const guest = useRepLogStore((s) => s.mode === "guest");
@@ -103,7 +107,9 @@ export function RevealPanel({
           <p className="text-[12px] text-muted-foreground">차트에 이후 움직임을 이어서 보여드립니다.</p>
         </div>
         {!hideImmediateFeedback && <AiAdvice repId={repId} />}
-        {!hideImmediateFeedback && <ImmediateFeedback logReps={logReps} />}
+        {!hideImmediateFeedback && (
+          <ImmediateFeedback current={rep} logReps={logReps} summary={feedbackSummary} />
+        )}
         <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
           {nextLabel}
         </Button>
@@ -178,7 +184,9 @@ export function RevealPanel({
 
       {!hideImmediateFeedback && <AiAdvice repId={repId} />}
 
-      {!hideImmediateFeedback && <ImmediateFeedback logReps={logReps} />}
+      {!hideImmediateFeedback && (
+        <ImmediateFeedback current={rep} logReps={logReps} summary={feedbackSummary} />
+      )}
 
       {!hideImmediateFeedback && !guest && surveyMilestone && (
         <RevealSurvey milestone={surveyMilestone} />
