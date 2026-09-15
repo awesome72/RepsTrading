@@ -103,6 +103,7 @@ export function RevealPanel({
           <p className="text-[12px] text-muted-foreground">차트에 이후 움직임을 이어서 보여드립니다.</p>
         </div>
         {!hideImmediateFeedback && <AiAdvice repId={repId} />}
+        {!hideImmediateFeedback && <ImmediateFeedback logReps={logReps} />}
         <Button size="lg" className="h-12 w-full text-[15px] font-bold" onClick={onNext}>
           {nextLabel}
         </Button>

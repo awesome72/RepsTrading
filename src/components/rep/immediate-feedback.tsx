@@ -34,6 +34,9 @@ export function ImmediateFeedback({ logReps }: ImmediateFeedbackProps) {
   const before = logReps.slice(0, -1);
   const current = logReps.at(-1);
   if (!current) return null;
+  // 지나간 판단은 "정답 셋업" 여부를 RevealPanel이 이미 별도 박스로 보여준다 —
+  // 여기서 등급(A~D) 기준 문구를 또 보여주면 어긋난 소리를 하게 된다 (지나가기는 서버가 등급을 항상 A로 저장한다).
+  const isPass = current.exitReason === "pass";
 
   const adherenceBefore = adherenceRate(before) * 100;
   const adherenceAfter = adherenceRate(logReps) * 100;
@@ -53,10 +56,12 @@ export function ImmediateFeedback({ logReps }: ImmediateFeedbackProps) {
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3">
-      <div>
-        <p className="text-[11px] text-muted-foreground">이번 판정</p>
-        <p className="text-[13px] leading-relaxed text-foreground">{describeJudgement(current)}</p>
-      </div>
+      {!isPass && (
+        <div>
+          <p className="text-[11px] text-muted-foreground">이번 판정</p>
+          <p className="text-[13px] leading-relaxed text-foreground">{describeJudgement(current)}</p>
+        </div>
+      )}
 
       <div>
         <p className="text-[11px] text-muted-foreground">이번으로 달라진 것</p>

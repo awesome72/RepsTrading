@@ -63,6 +63,22 @@ export const FEEDBACK_RULES: FeedbackRule[] = [
     },
   },
   {
+    id: "missed-setups",
+    message:
+      "최근 지나간 판단 중 실제로 셋업이었던 경우가 많았습니다. 지나가기 전에 셋업 기준을 한 번 더 확인하세요.",
+    // 이번이 지나간 판단이고, 최근 지나간 것들 중 절반 이상이 사실 셋업이었다면(=기회를 놓쳤다면) 짚어준다
+    test: (reps) => {
+      const last = decisionReps(reps).at(-1);
+      if (!last || last.exitReason !== "pass") return false;
+      const recentPasses = decisionReps(reps)
+        .slice(-10)
+        .filter((r) => r.exitReason === "pass");
+      if (recentPasses.length < 3) return false;
+      const missed = recentPasses.filter((r) => r.setupLabel !== "none").length;
+      return missed / recentPasses.length >= 0.5;
+    },
+  },
+  {
     id: "setup-recognition",
     message:
       "차트 모양을 구분하는 연습이 더 필요합니다. 눌림목과 돌파의 차이를 다시 보고, 셋업이 아닌 곳은 지나가세요.",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_MESSAGE, FEEDBACK_RULES, getFeedback } from "./rules";
 import type { DecisionGrade, Rep } from "@/lib/rep/types";
+import type { SetupLabel } from "@/lib/market/scenario";
 
 function fakeRep(params: { r: number; grade: DecisionGrade; adhered: boolean; at?: number }): Rep {
   return {
@@ -22,6 +23,22 @@ function fakeRep(params: { r: number; grade: DecisionGrade; adhered: boolean; at
     exitReason: "target",
     decisionGrade: params.grade,
     result: { exitPrice: 100 + params.r * 10, rMultiple: params.r },
+  };
+}
+
+function fakePassRep(setupLabel: SetupLabel): Rep {
+  return {
+    id: `p-${Math.random()}`,
+    scenarioId: "s",
+    seed: 1,
+    setupLabel,
+    state: "REVEALED",
+    openedAt: 0,
+    plan: { setupChoice: "other", entryPrice: 100, stopPrice: 100, targetPrice: 100, targetR: 0 },
+    adhered: true,
+    exitReason: "pass",
+    decisionGrade: "A",
+    result: { exitPrice: 100, rMultiple: 0 },
   };
 }
 
@@ -73,6 +90,31 @@ describe("getFeedback", () => {
       ...Array.from({ length: 3 }, () => fakeRep({ r: 1, grade: "B", adhered: true })),
     ];
     expect(getFeedback(reps)).toBe(FEEDBACK_RULES.find((r) => r.id === "weak-judgment")!.message);
+  });
+
+  it("이번이 지나간 판단이고 최근 지나간 것 절반 이상이 실제 셋업이었으면 놓친 기회를 짚는다", () => {
+    const reps = [fakePassRep("pullback"), fakePassRep("none"), fakePassRep("breakout")];
+    expect(getFeedback(reps)).toBe(FEEDBACK_RULES.find((r) => r.id === "missed-setups")!.message);
+  });
+
+  it("지나간 것이 3회 미만이면 아직 판단하지 않는다", () => {
+    const reps = [fakePassRep("pullback"), fakePassRep("breakout")];
+    expect(getFeedback(reps)).not.toBe(FEEDBACK_RULES.find((r) => r.id === "missed-setups")!.message);
+  });
+
+  it("이번이 지나간 판단이어도 최근 지나간 것 대부분이 정답(셋업 없음)이면 걸리지 않는다", () => {
+    const reps = [fakePassRep("none"), fakePassRep("none"), fakePassRep("pullback")];
+    expect(getFeedback(reps)).not.toBe(FEEDBACK_RULES.find((r) => r.id === "missed-setups")!.message);
+  });
+
+  it("최근엔 많이 놓쳤어도 이번이 지나간 판단이 아니면 걸리지 않는다 (마지막 판단 기준)", () => {
+    const reps = [
+      fakePassRep("pullback"),
+      fakePassRep("breakout"),
+      fakePassRep("pullback"),
+      fakeRep({ r: 1, grade: "A", adhered: true }),
+    ];
+    expect(getFeedback(reps)).not.toBe(FEEDBACK_RULES.find((r) => r.id === "missed-setups")!.message);
   });
 });
 
