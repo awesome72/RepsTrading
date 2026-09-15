@@ -39,6 +39,12 @@ describe("computeHistorySummary", () => {
     expect(s.message).toContain("손실 한도");
   });
 
+  it("tradedAfter는 지나간 것을 빼고 이번 rep까지 센다", () => {
+    const pass: Rep = { ...tradedRep(0, true), exitReason: "pass" };
+    expect(computeHistorySummary([tradedRep(1, true), pass], tradedRep(1, true), null).tradedAfter).toBe(2);
+    expect(computeHistorySummary([tradedRep(1, true)], pass, null).tradedAfter).toBe(1);
+  });
+
   it("dailyGoal이 있으면 오늘 진행 상황이 반영된 기본 메시지가 나온다", () => {
     const now = new Date(2026, 8, 15, 12).getTime();
     const s = computeHistorySummary([], tradedRep(1, true), 10, now);

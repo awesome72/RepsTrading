@@ -2,7 +2,33 @@ import { cn } from "@/lib/utils";
 import { computeHistorySummary, type HistorySummary } from "@/lib/feedback/summary";
 import { DAILY_GOAL } from "@/lib/metrics/progress";
 import { useRepLogStore } from "@/lib/rep/log-store";
+import { useAccountStore } from "@/lib/account/store";
+import { GATE_LABEL, gateCountTarget } from "@/lib/gate/rules";
+import type { GateLevel } from "@/lib/gate/types";
 import type { Rep } from "@/lib/rep/types";
+
+/** 이번 한 번으로 게이트 누적 횟수가 한 칸 찼다는 걸 결과 화면에서 바로 보여준다 */
+function GateTick({ level, tradedAfter }: { level: GateLevel; tradedAfter: number }) {
+  const target = gateCountTarget(level);
+  const reached = tradedAfter >= target;
+  return (
+    <div className="mt-2 flex flex-col gap-1">
+      <p className="num text-[12px] text-muted-foreground">
+        {GATE_LABEL[level]} 누적{" "}
+        <span className="font-semibold text-foreground">
+          {tradedAfter - 1} → {tradedAfter}
+        </span>{" "}
+        / {target}회{reached && <span className="text-good"> · 목표 횟수 도달</span>}
+      </p>
+      <div className="h-1.5 w-full rounded-full bg-surface-2" aria-hidden>
+        <div
+          className="h-full rounded-full bg-primary"
+          style={{ width: `${Math.min(100, (tradedAfter / target) * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 type ImmediateFeedbackProps = {
   /** 방금 끝난 판단 */
@@ -37,6 +63,8 @@ function describeJudgement(rep: Rep): string {
 export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedbackProps) {
   // 게스트는 5회 한도라 하루 목표(10회)를 쓰지 않는다
   const guest = useRepLogStore((s) => s.mode === "guest");
+  const gateLevel = useAccountStore((s) => s.gateLevel);
+  const gateSynced = useAccountStore((s) => s.serverSynced);
   // 지나간 판단은 "정답 셋업" 여부를 RevealPanel이 이미 별도 박스로 보여준다 —
   // 여기서 등급(A~D) 기준 문구를 또 보여주면 어긋난 소리를 하게 된다 (지나가기는 서버가 등급을 항상 A로 저장한다).
   const isPass = current.exitReason === "pass";
@@ -46,6 +74,9 @@ export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedba
   const adherenceBefore = computed.adherenceBefore * 100;
   const adherenceAfter = computed.adherenceAfter * 100;
   const { remainingBefore, remainingAfter } = computed;
+
+  // 게이트는 로그인 사용자에게만 있고, 지나간 판단은 누적 횟수에 들어가지 않는다
+  const showGateTick = !guest && !isPass && gateSynced;
 
   const adherenceImproved = adherenceAfter >= adherenceBefore;
   const remainingImproved =
@@ -75,6 +106,7 @@ export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedba
             </>
           )}
         </p>
+        {showGateTick && <GateTick level={gateLevel} tradedAfter={computed.tradedAfter} />}
       </div>
 
       <div>

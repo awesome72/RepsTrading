@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDemotion, decideGateTransition, evaluateGate, GATE_TARGETS } from "./rules";
+import { checkDemotion, decideGateTransition, evaluateGate, gateCountTarget, GATE_TARGETS } from "./rules";
 import type { DecisionGrade, Rep } from "@/lib/rep/types";
 
 function fakeRep(params: {
@@ -97,6 +97,15 @@ describe("evaluateGate — G3", () => {
       fakeRep({ i, r: 1, grade: "A", adhered: true })
     );
     expect(evaluateGate(3, reps).passed).toBe(false);
+  });
+});
+
+describe("gateCountTarget", () => {
+  it("각 단계의 누적 횟수 목표가 evaluateGate의 count 요구사항과 같다", () => {
+    for (const level of [1, 2, 3] as const) {
+      const req = evaluateGate(level, []).requirements.find((r) => r.id === "count");
+      expect(gateCountTarget(level)).toBe(req?.target);
+    }
   });
 });
 

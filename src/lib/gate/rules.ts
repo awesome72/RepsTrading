@@ -20,6 +20,15 @@ export const GATE_TARGETS = {
   3: { extraCount: 100 }, // G2 이후 추가 횟수 — 실계좌 연동 전까지는 안내만
 } as const;
 
+export const GATE_LABEL: Record<GateLevel, string> = { 1: "G1 실행", 2: "G2 판별", 3: "G3 전환" };
+
+/** 이 단계의 "누적 횟수" 목표. 모든 단계가 지나간 것·가이드 연습을 뺀 전체 누적(tradedReps)으로 센다 */
+export function gateCountTarget(level: GateLevel): number {
+  if (level === 1) return GATE_TARGETS[1].count;
+  if (level === 2) return GATE_TARGETS[2].count;
+  return GATE_TARGETS[2].count + GATE_TARGETS[3].extraCount;
+}
+
 const DEMOTION_WINDOW = 50;
 const DEMOTION_THRESHOLD = 0.85;
 const DEMOTION_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
@@ -122,7 +131,7 @@ export function evaluateGate(level: GateLevel, reps: Rep[]): GateEvaluation {
   }
 
   // G3: 실계좌 연동이 필요해 지금은 횟수만 안내하고 통과 처리는 하지 않는다
-  const target = GATE_TARGETS[2].count + GATE_TARGETS[3].extraCount;
+  const target = gateCountTarget(3);
   const requirements: GateRequirement[] = [
     {
       id: "count",

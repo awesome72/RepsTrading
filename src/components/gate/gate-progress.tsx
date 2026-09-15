@@ -1,8 +1,8 @@
 import { InfoDot } from "@/components/info-tooltip";
 import { cn } from "@/lib/utils";
+import { GATE_LABEL } from "@/lib/gate/rules";
 import type { GateEvaluation } from "@/lib/gate/types";
 
-const LEVEL_LABEL: Record<number, string> = { 1: "G1 실행", 2: "G2 판별", 3: "G3 전환" };
 
 export function GateProgress({ evaluation }: { evaluation: GateEvaluation }) {
   const unmet = evaluation.requirements.filter((r) => !r.met);
@@ -14,7 +14,7 @@ export function GateProgress({ evaluation }: { evaluation: GateEvaluation }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <p className="text-[13px] font-semibold text-foreground">
-        {LEVEL_LABEL[evaluation.level] ?? `G${evaluation.level}`} 진행 상황
+        {GATE_LABEL[evaluation.level]} 진행 상황
       </p>
       <div className="flex flex-col gap-3">
         {evaluation.requirements.map((r) => {

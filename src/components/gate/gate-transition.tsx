@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
+import { GATE_LABEL } from "@/lib/gate/rules";
+import type { GateLevel } from "@/lib/gate/types";
 
 type GateTransitionProps = {
   kind: "promotion" | "demotion";
-  fromLevel: number;
-  toLevel: number;
+  fromLevel: GateLevel;
+  toLevel: GateLevel;
   onClose: () => void;
 };
-
-const LEVEL_LABEL: Record<number, string> = { 1: "G1 실행", 2: "G2 판별", 3: "G3 전환" };
 
 /**
  * 단계마다 실제로 무엇이 달라지는지 (차트 구성, 판정 기준) — "조건을 채웠습니다" 같은
@@ -30,12 +30,12 @@ export function GateTransition({ kind, fromLevel, toLevel, onClose }: GateTransi
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background px-4 text-center">
       <p className="text-[13px] font-semibold text-muted-foreground">
-        {LEVEL_LABEL[fromLevel]} → {LEVEL_LABEL[toLevel]}
+        {GATE_LABEL[fromLevel]} → {GATE_LABEL[toLevel]}
       </p>
       <h1 className="max-w-md text-[26px] font-bold leading-snug text-foreground">
         {isPromotion
-          ? `${LEVEL_LABEL[toLevel]} 단계로 올라갑니다.`
-          : `${LEVEL_LABEL[toLevel]} 단계로 재조정합니다.`}
+          ? `${GATE_LABEL[toLevel]} 단계로 올라갑니다.`
+          : `${GATE_LABEL[toLevel]} 단계로 재조정합니다.`}
       </h1>
       <p className="max-w-md text-[13px] leading-relaxed text-muted-foreground">
         {isPromotion
