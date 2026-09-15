@@ -7,7 +7,7 @@ import { useUser } from "@/lib/auth/use-user";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { decisionReps } from "@/lib/metrics/stats";
 import { GuestNotice } from "@/components/auth/guest-notice";
-import { apiListReps, type ServerRep } from "@/lib/rep/api";
+import { apiListRepsAll, apiListRepsPage, type ServerRep } from "@/lib/rep/api";
 import { generateScenario } from "@/lib/market/scenario";
 import type { DecisionGrade, SetupChoice } from "@/lib/rep/types";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,9 @@ const SETUP_LABEL: Record<SetupChoice, string> = {
   breakout: "돌파",
   other: "기타",
 };
+
+/** 화면에 한 번에 보여줄 개수 — "더 보기"를 누르면 이만큼씩 이어서 받는다 */
+const PAGE_SIZE = 30;
 
 function toCsv(reps: ServerRep[]): string {
   const header = ["날짜", "셋업", "R", "등급", "계획 지킴"];
@@ -51,29 +54,64 @@ function downloadCsv(content: string, filename: string) {
 export default function JournalPage() {
   const { user, loading: userLoading } = useUser();
   const [reps, setReps] = useState<ServerRep[] | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [setupFilter, setSetupFilter] = useState<"all" | SetupChoice>("all");
   const [gradeFilter, setGradeFilter] = useState<"all" | DecisionGrade>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const guestReps = useRepLogStore((s) => (s.mode === "guest" ? s.reps : null));
 
+  const filterParams = useMemo(
+    () => ({
+      traded: true as const,
+      setup: setupFilter === "all" ? undefined : setupFilter,
+      grade: gradeFilter === "all" ? undefined : gradeFilter,
+    }),
+    [setupFilter, gradeFilter]
+  );
+
+  // 필터가 바뀌면 처음부터 다시 받는다 — 로그인 여부가 바뀔 때도 마찬가지
   useEffect(() => {
     if (!user) return;
-    apiListReps()
-      .then(setReps)
-      .catch(() => setReps([]));
-  }, [user]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReps(null);
+    apiListRepsPage({ ...filterParams, limit: PAGE_SIZE })
+      .then((r) => {
+        setReps(r.reps);
+        setHasMore(r.hasMore);
+      })
+      .catch(() => {
+        setReps([]);
+        setHasMore(false);
+      });
+  }, [user, filterParams]);
 
-  const traded = useMemo(
-    () => (reps ?? []).filter((r) => r.exit_reason !== "pass" && r.r_result !== undefined),
-    [reps]
-  );
+  function loadMore() {
+    if (!reps || loadingMore) return;
+    const before = reps.at(-1)?.committed_at;
+    if (!before) return;
+    setLoadingMore(true);
+    apiListRepsPage({ ...filterParams, limit: PAGE_SIZE, before })
+      .then((r) => {
+        setReps((prev) => [...(prev ?? []), ...r.reps]);
+        setHasMore(r.hasMore);
+      })
+      .finally(() => setLoadingMore(false));
+  }
 
-  const filtered = traded.filter(
-    (r) =>
-      (setupFilter === "all" || r.plan_setup === setupFilter) &&
-      (gradeFilter === "all" || r.decision_grade === gradeFilter)
-  );
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const all = await apiListRepsAll(filterParams);
+      downloadCsv(toCsv(all), "reps.csv");
+    } catch {
+      // 다운로드 실패는 조용히 무시한다 — 버튼을 다시 누르면 된다
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (!userLoading && !user) {
     return (
@@ -97,11 +135,11 @@ export default function JournalPage() {
         <h1 className="text-[20px] font-bold text-foreground">기록</h1>
         <button
           type="button"
-          disabled={filtered.length === 0}
-          onClick={() => downloadCsv(toCsv(filtered), "reps.csv")}
+          disabled={reps.length === 0 || exporting}
+          onClick={exportCsv}
           className="h-8 rounded-md border border-border bg-card px-3 text-[12px] font-medium text-foreground disabled:opacity-40"
         >
-          CSV 내보내기
+          {exporting ? "내보내는 중..." : "CSV 내보내기"}
         </button>
       </div>
 
@@ -129,7 +167,7 @@ export default function JournalPage() {
         </select>
       </div>
 
-      {filtered.length === 0 ? (
+      {reps.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
           <p>아직 연습 기록이 없습니다. 첫 연습은 2분이면 끝납니다.</p>
           <Link
@@ -140,29 +178,41 @@ export default function JournalPage() {
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="border-b border-border bg-card text-left text-muted-foreground">
-                <th className="px-3 py-2 font-normal">날짜</th>
-                <th className="px-3 py-2 font-normal">셋업</th>
-                <th className="px-3 py-2 text-right font-normal">R</th>
-                <th className="px-3 py-2 font-normal">등급</th>
-                <th className="px-3 py-2 font-normal">계획 지킴</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <RepRow
-                  key={r.id}
-                  rep={r}
-                  expanded={expandedId === r.id}
-                  onToggle={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border bg-card text-left text-muted-foreground">
+                  <th className="px-3 py-2 font-normal">날짜</th>
+                  <th className="px-3 py-2 font-normal">셋업</th>
+                  <th className="px-3 py-2 text-right font-normal">R</th>
+                  <th className="px-3 py-2 font-normal">등급</th>
+                  <th className="px-3 py-2 font-normal">계획 지킴</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reps.map((r) => (
+                  <RepRow
+                    key={r.id}
+                    rep={r}
+                    expanded={expandedId === r.id}
+                    onToggle={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {hasMore && (
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="h-9 rounded-md border border-border bg-card text-[13px] text-foreground disabled:opacity-60"
+            >
+              {loadingMore ? "불러오는 중..." : "더 보기"}
+            </button>
+          )}
+        </>
       )}
     </div>
   );

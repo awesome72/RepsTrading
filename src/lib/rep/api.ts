@@ -100,6 +100,37 @@ export async function apiListReps(): Promise<ServerRep[]> {
   return asJson(res);
 }
 
+export type RepListFilter = {
+  setup?: SetupChoice;
+  grade?: DecisionGrade;
+  /** 지나간 것·아직 채점 안 된 것을 서버에서 뺀다 */
+  traded?: boolean;
+};
+
+/** /journal의 표: 커서 기반 페이지 단위로 받는다. filter는 서버에서 걸러 불필요한 행을 안 보낸다 */
+export async function apiListRepsPage(
+  filter: RepListFilter & { limit: number; before?: string }
+): Promise<{ reps: ServerRep[]; hasMore: boolean }> {
+  const params = new URLSearchParams({ limit: String(filter.limit) });
+  if (filter.before) params.set("before", filter.before);
+  if (filter.setup) params.set("setup", filter.setup);
+  if (filter.grade) params.set("grade", filter.grade);
+  if (filter.traded) params.set("traded", "1");
+  const res = await fetch(`/api/reps?${params}`);
+  return asJson(res);
+}
+
+/** CSV "전체 내보내기" — 지금 걸린 필터에 맞는 전체 기록을 한 번에 받는다 (사용자가 직접 누른 동작이라 무제한 요청이어도 된다) */
+export async function apiListRepsAll(filter: RepListFilter = {}): Promise<ServerRep[]> {
+  const params = new URLSearchParams();
+  if (filter.setup) params.set("setup", filter.setup);
+  if (filter.grade) params.set("grade", filter.grade);
+  if (filter.traded) params.set("traded", "1");
+  const qs = params.toString();
+  const res = await fetch(`/api/reps${qs ? `?${qs}` : ""}`);
+  return asJson(res);
+}
+
 export type ProgressSummary = {
   n: number;
   expectancy: number;
