@@ -56,7 +56,7 @@
 }
 
 :root {
-  --font-pretendard: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui,
+  --font-pretendard: var(--font-pretendard-local), -apple-system, BlinkMacSystemFont, system-ui,
     sans-serif;
 
   /* Binance 컨셉: 근검정 캔버스 + 노란 액센트. 상승/하락만 한국 관례(빨강/파랑) 유지 */
