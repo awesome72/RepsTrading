@@ -36,6 +36,8 @@ import {
 } from "@/lib/rep/practice-ui";
 import { cn } from "@/lib/utils";
 import type { HistorySummary } from "@/lib/feedback/summary";
+import { replayStatus, type ReplayStatus } from "@/lib/rep/replay-coach";
+import { ReplayCoachNote, ReplayGauge } from "@/components/rep/replay-gauge";
 import type { DecisionGrade, ExitReason, Plan } from "@/lib/rep/types";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
@@ -375,6 +377,20 @@ export default function PracticePage() {
   const hint = practiceHint(rep, showForm, showOverlay);
   const replayLines = practiceReplayLines(rep);
 
+  // 진입봉(decisionIndex-1)부터 지금까지 공개된 봉만으로 현재가·최고가를 잡는다 — 앞으로 나올 봉은 보지 않는다
+  let replayGauge: ReplayStatus | null = null;
+  if (rep.state === "COMMITTED" && rep.plan) {
+    const closes = scenario.candles
+      .slice(scenario.decisionIndex - 1, scenario.decisionIndex + revealCount)
+      .map((c) => c.close);
+    replayGauge = replayStatus({
+      plan: rep.plan,
+      movedStopPrice: rep.movedStopPrice,
+      currentPrice: closes[closes.length - 1],
+      peakPrice: Math.max(...closes),
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4 py-6">
       <div className="flex items-center justify-between gap-3">
@@ -391,7 +407,10 @@ export default function PracticePage() {
       )}
 
       <div className="flex flex-col gap-4 md:flex-row">
-        <div className="md:w-[70%]">
+        <div className="relative md:w-[70%]">
+          {replayGauge?.message && (
+            <ReplayCoachNote message={replayGauge.message} tone={replayGauge.tone} />
+          )}
           <BlindChart
             ref={chartRef}
             candles={visibleCandles(scenario, passRevealed ? MAX_REPLAY_CANDLES : revealCount)}
@@ -433,6 +452,7 @@ export default function PracticePage() {
               <p className="text-[13px] text-muted-foreground">
                 {revealCount}/{MAX_REPLAY_CANDLES}봉 진행 중
               </p>
+              {replayGauge && <ReplayGauge status={replayGauge} />}
               <div className="flex gap-1">
                 {SPEEDS.map((s) => (
                   <button
