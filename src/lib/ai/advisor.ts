@@ -47,6 +47,12 @@ const SYSTEM_PROMPT = `당신은 REPS라는 한국어 트레이딩 연습 앱의
 - 마지막 한 문장은 다음 연습에서 시도해볼 구체적인 행동 하나만 제안하세요. 여러 개를 나열하지 마세요.
 - 실제 종목·실제 매수매도 타이밍을 언급하거나 투자를 권유하지 마세요. 이건 연습용 가상 데이터에 대한 코칭입니다.`;
 
+/** 조언 API가 한 줄에 하나씩 보내는 스트림 이벤트 (NDJSON) */
+export type AdviceStreamEvent =
+  | { t: "delta"; text: string }
+  | { t: "done" }
+  | { t: "error"; message: string };
+
 export class AdviceError extends Error {
   constructor(public code: "rate_limited" | "unavailable" | "refused") {
     super(code);
@@ -65,24 +71,40 @@ function buildFactsMessage(f: AdviceFacts): string {
   return `아래 사실을 바탕으로 이번 판단에 대한 코칭 조언을 써주세요.\n\n${lines.join("\n")}`;
 }
 
-export async function generateAdvice(facts: AdviceFacts): Promise<string> {
-  let response;
+/**
+ * 조언을 글자 조각 단위로 흘려보낸다 — 12초가량 걸리는 응답을 빈 화면으로 기다리지 않게 한다.
+ * SDK 에러는 AdviceError로 바꿔 던지고, 끝났는데 거부(refusal)였거나 글자가 하나도 없으면 역시 던진다.
+ * 호출 쪽이 도중에 멈추면(return) 진행 중인 요청을 끊는다.
+ */
+export async function* streamAdvice(facts: AdviceFacts): AsyncGenerator<string> {
+  const stream = getClient().messages.stream({
+    model: MODEL,
+    max_tokens: 600,
+    system: SYSTEM_PROMPT,
+    output_config: { effort: "low" },
+    messages: [{ role: "user", content: buildFactsMessage(facts) }],
+  });
+
+  let finished = false;
+  let produced = false;
   try {
-    response = await getClient().messages.create({
-      model: MODEL,
-      max_tokens: 600,
-      system: SYSTEM_PROMPT,
-      output_config: { effort: "low" },
-      messages: [{ role: "user", content: buildFactsMessage(facts) }],
-    });
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        produced = true;
+        yield event.delta.text;
+      }
+    }
+    const message = await stream.finalMessage();
+    finished = true;
+    if (message.stop_reason === "refusal") throw new AdviceError("refused");
+    if (!produced) throw new AdviceError("unavailable");
   } catch (e) {
+    finished = true;
+    if (e instanceof AdviceError) throw e;
     if (e instanceof Anthropic.RateLimitError) throw new AdviceError("rate_limited");
     if (e instanceof Anthropic.APIError) throw new AdviceError("unavailable");
     throw e;
+  } finally {
+    if (!finished) stream.abort();
   }
-
-  if (response.stop_reason === "refusal") throw new AdviceError("refused");
-  const text = response.content.find((b) => b.type === "text")?.text?.trim();
-  if (!text) throw new AdviceError("unavailable");
-  return text;
 }

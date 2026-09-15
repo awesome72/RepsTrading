@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rebuildPlan } from "@/lib/rep/server-guard";
-import { AdviceError, generateAdvice, type AdviceFacts } from "@/lib/ai/advisor";
+import {
+  AdviceError,
+  streamAdvice,
+  type AdviceFacts,
+  type AdviceStreamEvent,
+} from "@/lib/ai/advisor";
 import type { SetupChoice } from "@/lib/rep/types";
 import type { SetupLabel } from "@/lib/market/scenario";
 
@@ -81,23 +86,59 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     inputSeconds: rep.input_seconds ?? null,
   };
 
+  // 첫 글자가 나오기 전의 실패(요청 한도, API 오류, 처음부터 거부)는 지금처럼 상태 코드로 알린다.
+  // 첫 글자가 나온 뒤에는 이미 200을 보냈으므로, 이후의 실패는 스트림 안의 error 이벤트로 알린다.
+  const chunks = streamAdvice(facts);
+  let first: IteratorResult<string>;
   try {
-    const advice = await generateAdvice(facts);
-    return NextResponse.json({ advice });
+    first = await chunks.next();
   } catch (e) {
-    if (e instanceof AdviceError) {
-      if (e.code === "rate_limited") {
-        return NextResponse.json(
-          { error: "지금 요청이 많습니다. 잠시 후 다시 시도해주세요." },
-          { status: 429 }
-        );
+    return adviceErrorResponse(e);
+  }
+
+  const encoder = new TextEncoder();
+  const send = (controller: ReadableStreamDefaultController, event: AdviceStreamEvent) =>
+    controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+
+  const body = new ReadableStream({
+    async start(controller) {
+      try {
+        if (!first.done) send(controller, { t: "delta", text: first.value });
+        for (let next = await chunks.next(); !next.done; next = await chunks.next()) {
+          send(controller, { t: "delta", text: next.value });
+        }
+        send(controller, { t: "done" });
+      } catch (e) {
+        if (!(e instanceof AdviceError)) console.error("advice stream failed", e);
+        send(controller, { t: "error", message: "AI 조언이 중간에 끊겼습니다. 잠시 후 다시 시도해주세요." });
+      } finally {
+        controller.close();
       }
+    },
+    async cancel() {
+      // 사용자가 화면을 떠나면 Claude 요청도 끊는다
+      await chunks.return(undefined);
+    },
+  });
+
+  return new Response(body, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
+
+function adviceErrorResponse(e: unknown) {
+  if (e instanceof AdviceError) {
+    if (e.code === "rate_limited") {
       return NextResponse.json(
-        { error: "AI 조언을 가져오지 못했습니다. 잠시 후 다시 시도해주세요." },
-        { status: 502 }
+        { error: "지금 요청이 많습니다. 잠시 후 다시 시도해주세요." },
+        { status: 429 }
       );
     }
-    console.error("advice generation failed", e);
-    return NextResponse.json({ error: "AI 조언을 가져오지 못했습니다." }, { status: 500 });
+    return NextResponse.json(
+      { error: "AI 조언을 가져오지 못했습니다. 잠시 후 다시 시도해주세요." },
+      { status: 502 }
+    );
   }
+  console.error("advice generation failed", e);
+  return NextResponse.json({ error: "AI 조언을 가져오지 못했습니다." }, { status: 500 });
 }
