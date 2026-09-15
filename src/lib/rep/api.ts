@@ -1,4 +1,7 @@
 import { generateScenario } from "@/lib/market/scenario";
+import type { GateEvaluation, GateLevel } from "@/lib/gate/types";
+import type { PeriodStats } from "@/lib/metrics/progress";
+import type { GradeDistribution } from "@/lib/metrics/stats";
 import type { DecisionGrade, ExitReason, Rep, SetupChoice } from "./types";
 
 export type ServerRep = {
@@ -94,6 +97,32 @@ export async function apiPassRep(params: {
 
 export async function apiListReps(): Promise<ServerRep[]> {
   const res = await fetch("/api/reps");
+  return asJson(res);
+}
+
+export type ProgressSummary = {
+  n: number;
+  expectancy: number;
+  adherence: number;
+  accuracy: number;
+  remaining: number | null;
+  grades: GradeDistribution;
+  lucky: number;
+  curve: { i: number; cum: number }[];
+  matrix: { goodGood: number; goodBad: number; badGood: number; badBad: number };
+  gateLevel: GateLevel;
+  gateEvaluation: GateEvaluation;
+  pace: { perDay: number; daysLeft: number | null; remaining: number } | null;
+  paceTarget: number | null;
+  weekly: { thisWeek: PeriodStats; lastWeek: PeriodStats };
+};
+
+/**
+ * /progress에 필요한 숫자만 서버에서 미리 계산해 받는다 — 전체 rep 행을 내려받지 않는다.
+ * (게스트는 로컬에 최대 5개뿐이라 이 엔드포인트를 쓰지 않고 그대로 클라이언트에서 계산한다.)
+ */
+export async function apiGetProgressSummary(): Promise<ProgressSummary> {
+  const res = await fetch("/api/reps/summary");
   return asJson(res);
 }
 

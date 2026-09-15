@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -17,10 +17,9 @@ import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
 import { useUser } from "@/lib/auth/use-user";
 import { useRepLogStore } from "@/lib/rep/log-store";
-import { useAccountStore } from "@/lib/account/store";
 import { GuestNotice } from "@/components/auth/guest-notice";
 import { PaceLine, WeeklySummary } from "@/components/progress/weekly-summary";
-import { paceEstimate, weeklyComparison } from "@/lib/metrics/progress";
+import { weeklyComparison } from "@/lib/metrics/progress";
 import { evaluateGate } from "@/lib/gate/rules";
 import {
   adherenceRate,
@@ -32,6 +31,7 @@ import {
   tradedReps,
   decisionReps,
 } from "@/lib/metrics/stats";
+import { apiGetProgressSummary, type ProgressSummary } from "@/lib/rep/api";
 import type { Rep } from "@/lib/rep/types";
 import { cn } from "@/lib/utils";
 
@@ -41,32 +41,96 @@ function isGoodJudgment(rep: Rep): boolean {
   return rep.decisionGrade === "A" || rep.decisionGrade === "B";
 }
 
+/** 게스트는 로컬에 최대 5개뿐이라 클라이언트에서 그대로 계산한다 (서버 요약이 필요 없다) */
+function summaryFromLocalReps(reps: Rep[]): ProgressSummary {
+  const traded = tradedReps(reps);
+  const n = traded.length;
+  const nStar = requiredSample(reps);
+  const curve = traded.reduce<{ i: number; cum: number }[]>((acc, r) => {
+    const prevCum = acc.length > 0 ? acc[acc.length - 1].cum : 0;
+    const cum = Number((prevCum + (r.result?.rMultiple ?? 0)).toFixed(2));
+    acc.push({ i: acc.length + 1, cum });
+    return acc;
+  }, []);
+  const matrix = {
+    goodGood: traded.filter((r) => isGoodJudgment(r) && (r.result?.rMultiple ?? 0) > 0).length,
+    goodBad: traded.filter((r) => isGoodJudgment(r) && (r.result?.rMultiple ?? 0) <= 0).length,
+    badGood: traded.filter((r) => !isGoodJudgment(r) && (r.result?.rMultiple ?? 0) > 0).length,
+    badBad: traded.filter((r) => !isGoodJudgment(r) && (r.result?.rMultiple ?? 0) <= 0).length,
+  };
+  // 게스트는 게이트가 없다 — evaluateGate(1, ...)로 계산은 해두되 화면에서 GateProgress를 숨긴다
+  const gateEvaluation = evaluateGate(1, reps);
+  return {
+    n,
+    expectancy: expectancy(reps),
+    adherence: adherenceRate(reps),
+    accuracy: setupAccuracy(reps),
+    remaining: Number.isFinite(nStar) ? Math.max(0, Math.ceil(nStar - n)) : null,
+    grades: gradeDistribution(reps),
+    lucky: luckyBadTrades(reps),
+    curve,
+    matrix,
+    gateLevel: 1,
+    gateEvaluation,
+    pace: null,
+    paceTarget: null,
+    weekly: weeklyComparison(reps),
+  };
+}
+
 export default function ProgressPage() {
   const { user, loading: userLoading } = useUser();
-  const reps = useRepLogStore((s) => s.reps);
-  const status = useRepLogStore((s) => s.status);
-  const gateLevel = useAccountStore((s) => s.gateLevel);
-  const gateSynced = useAccountStore((s) => s.serverSynced);
+  const guestReps = useRepLogStore((s) => s.reps);
   const logMode = useRepLogStore((s) => s.mode);
+  const logStatus = useRepLogStore((s) => s.status);
   // 게스트는 이 브라우저의 기록으로 통계를 보고, 게이트는 로그인 후에 열린다
   const guest = !userLoading && !user;
 
-  // 다른 기기에서 연습한 기록까지 반영되도록 들어올 때마다 서버에서 다시 받는다
+  const [summary, setSummary] = useState<ProgressSummary | null>(null);
+  const [summaryError, setSummaryError] = useState(false);
+
+  function loadSummary() {
+    setSummaryError(false);
+    apiGetProgressSummary()
+      .then(setSummary)
+      .catch(() => setSummaryError(true));
+  }
+
+  // 다른 기기에서 연습한 기록까지 반영되도록 들어올 때마다 서버에서 다시 받는다.
+  // 전체 rep 행이 아니라 이미 계산된 숫자만 받으므로 사용자가 아무리 많이 연습했어도 가볍다.
   useEffect(() => {
-    if (user) useRepLogStore.getState().refresh();
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSummary(null);
+      loadSummary();
+    }
   }, [user]);
 
-  const traded = useMemo(() => tradedReps(reps), [reps]);
-  const n = traded.length;
-  const gateEvaluation = useMemo(() => evaluateGate(gateLevel, reps), [gateLevel, reps]);
+  const guestSummary = useMemo(
+    () => (guest ? summaryFromLocalReps(guestReps) : null),
+    [guest, guestReps]
+  );
 
-  if (status === "error") {
+  if (guest) {
+    if (logStatus !== "ready" || logMode !== "guest" || !guestSummary) {
+      return <div className="h-64 py-10" />;
+    }
+    return (
+      <ProgressView
+        summary={guestSummary}
+        guestBanner={<GuestNotice variant="banner" count={decisionReps(guestReps).length} />}
+        showGate={false}
+      />
+    );
+  }
+
+  if (summaryError) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-center text-[13px] text-muted-foreground">
         <p>기록을 불러오지 못했습니다. 네트워크 연결을 확인해주세요.</p>
         <button
           type="button"
-          onClick={() => useRepLogStore.getState().refresh()}
+          onClick={loadSummary}
           className="h-9 rounded-md border border-border bg-card px-4 text-[13px] text-foreground"
         >
           다시 시도
@@ -75,15 +139,23 @@ export default function ProgressPage() {
     );
   }
 
-  if (userLoading || status !== "ready" || logMode !== (user ? "server" : "guest")) {
+  if (userLoading || !user || !summary) {
     return <div className="h-64 py-10" />;
   }
 
-  const guestBanner = guest && <GuestNotice variant="banner" count={decisionReps(reps).length} />;
-  // 이번 단계의 누적 횟수 조건까지 최근 속도로 며칠 남았는지 (게이트는 로그인해야 보인다)
-  const countReq = gateEvaluation.requirements.find((r) => r.id === "count");
-  const pace = countReq ? paceEstimate(reps, countReq.target) : null;
-  const paceLine = gateSynced && countReq && pace && <PaceLine {...pace} target={countReq.target} />;
+  return <ProgressView summary={summary} guestBanner={null} showGate />;
+}
+
+function ProgressView({
+  summary,
+  guestBanner,
+  showGate,
+}: {
+  summary: ProgressSummary;
+  guestBanner: React.ReactNode;
+  showGate: boolean;
+}) {
+  const { n, curve, grades, matrix, lucky } = summary;
 
   if (n < MIN_SAMPLE) {
     return (
@@ -93,35 +165,15 @@ export default function ProgressPage() {
         <p className="text-[13px] text-muted-foreground">
           {MIN_SAMPLE}회 이상 연습하면 여기에 통계가 나옵니다. (지금 {n}회)
         </p>
-        {gateSynced && <GateProgress evaluation={gateEvaluation} />}
-        {paceLine}
+        {showGate && <GateProgress evaluation={summary.gateEvaluation} />}
+        {showGate && summary.pace && summary.paceTarget !== null && (
+          <PaceLine {...summary.pace} target={summary.paceTarget} />
+        )}
       </div>
     );
   }
 
-  const exp = expectancy(reps);
-  const adherence = adherenceRate(reps);
-  const accuracy = setupAccuracy(reps);
-  const nStar = requiredSample(reps);
-  const remaining = Number.isFinite(nStar) ? Math.max(0, Math.ceil(nStar - n)) : null;
-  const grades = gradeDistribution(reps);
-  const lucky = luckyBadTrades(reps);
-
-  const curve = traded.reduce<{ i: number; cum: number }[]>((acc, r) => {
-    const prevCum = acc.length > 0 ? acc[acc.length - 1].cum : 0;
-    const cum = Number((prevCum + (r.result?.rMultiple ?? 0)).toFixed(2));
-    acc.push({ i: acc.length + 1, cum });
-    return acc;
-  }, []);
-
   const gradeBars = (["A", "B", "C", "D"] as const).map((g) => ({ grade: g, count: grades[g] }));
-
-  const matrix = {
-    goodGood: traded.filter((r) => isGoodJudgment(r) && (r.result?.rMultiple ?? 0) > 0).length,
-    goodBad: traded.filter((r) => isGoodJudgment(r) && (r.result?.rMultiple ?? 0) <= 0).length,
-    badGood: traded.filter((r) => !isGoodJudgment(r) && (r.result?.rMultiple ?? 0) > 0).length,
-    badBad: traded.filter((r) => !isGoodJudgment(r) && (r.result?.rMultiple ?? 0) <= 0).length,
-  };
 
   return (
     <div className="flex flex-col gap-6 py-6">
@@ -131,8 +183,8 @@ export default function ProgressPage() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
           label={<Term id="gi-dae-gap">평균 R</Term>}
-          value={`${exp >= 0 ? "+" : ""}${exp.toFixed(2)}R`}
-          tone={exp >= 0 ? "up" : "down"}
+          value={`${summary.expectancy >= 0 ? "+" : ""}${summary.expectancy.toFixed(2)}R`}
+          tone={summary.expectancy >= 0 ? "up" : "down"}
         />
         <StatCard
           label={
@@ -141,22 +193,24 @@ export default function ProgressPage() {
               <InfoDot content="지금까지의 성적이 실력인지 운인지 판단하려면 이만큼 더 필요합니다. 대부분의 사람이 30~50번 해보고 '이 방법 안 되네' 하며 그만두는데, 그 횟수로는 동전던지기와 구별이 안 됩니다." />
             </span>
           }
-          value={remaining !== null ? `${remaining}회` : "-"}
+          value={summary.remaining !== null ? `${summary.remaining}회` : "-"}
         />
         <StatCard
           label={<Term id="jun-su-yul">계획 지킴</Term>}
-          value={`${Math.round(adherence * 100)}%`}
+          value={`${Math.round(summary.adherence * 100)}%`}
         />
         <StatCard
           label={<Term id="pan-byeol-jeong-hwak-do">판별 정확도</Term>}
-          value={`${Math.round(accuracy * 100)}%`}
+          value={`${Math.round(summary.accuracy * 100)}%`}
         />
       </div>
 
-      {gateSynced && <GateProgress evaluation={gateEvaluation} />}
-      {paceLine}
+      {showGate && <GateProgress evaluation={summary.gateEvaluation} />}
+      {showGate && summary.pace && summary.paceTarget !== null && (
+        <PaceLine {...summary.pace} target={summary.paceTarget} />
+      )}
 
-      <WeeklySummary {...weeklyComparison(reps)} />
+      <WeeklySummary {...summary.weekly} />
 
       <section className="flex flex-col gap-2">
         <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
