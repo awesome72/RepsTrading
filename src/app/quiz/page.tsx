@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Term } from "@/components/term";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
+import { useCompactViewport } from "@/lib/hooks/use-compact-viewport";
 import { generateScenario, visibleCandles, type SetupLabel } from "@/lib/market/scenario";
 import { SETUP_HINT, SETUP_NAME } from "@/lib/market/setup-copy";
 import { gradeQuizAnswer, nextQuizSeed, type QuizAnswer } from "@/lib/quiz/quiz";
@@ -40,15 +41,7 @@ export default function QuizPage() {
   // 오답 복습 중에는 지금 문제가 review 큐의 몇 번째 seed인지 들고 있는다
   const [reviewSeed, setReviewSeed] = useState<number | null>(null);
   // 모바일에서는 차트를 줄이고 선택지를 가로로 놓아, 스크롤 없이 차트와 선택지가 한 화면에 들어오게 한다
-  const [compact, setCompact] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const update = () => setCompact(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
+  const compact = useCompactViewport();
 
   // 모바일에서는 정답 설명과 "다음 문제"가 하단 고정 바(면책 문구 + 탭바)에 가려진다.
   // scrollIntoView는 그 바를 모르고 "이미 보인다"고 판단하므로, 가려지는 만큼 직접 스크롤한다.

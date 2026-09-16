@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import type { HistorySummary } from "@/lib/feedback/summary";
 import { replayStatus, type ReplayStatus } from "@/lib/rep/replay-coach";
 import { ReplayCoachNote, ReplayGauge } from "@/components/rep/replay-gauge";
+import { useCompactViewport } from "@/lib/hooks/use-compact-viewport";
 import type { DecisionGrade, ExitReason, Plan } from "@/lib/rep/types";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
@@ -48,6 +49,8 @@ const SPEEDS = [1, 2, 4] as const;
 
 export default function PracticePage() {
   const { user, loading: userLoading } = useUser();
+  // 모바일에서는 재생 패널이 하단에 붙박이로 떠 있어 차트를 많이 가린다 — 차트를 줄여서 덜 가리게 한다
+  const compact = useCompactViewport();
 
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -415,6 +418,7 @@ export default function PracticePage() {
             ref={chartRef}
             candles={visibleCandles(scenario, passRevealed ? MAX_REPLAY_CANDLES : revealCount)}
             label={`연습 #${scenario.seed.toString(16).slice(-4).toUpperCase()}`}
+            height={compact ? 300 : 420}
             priceLines={replayLines}
             markers={
               passRevealed
@@ -473,21 +477,25 @@ export default function PracticePage() {
               <Button variant="outline" className="h-11 w-full" onClick={handleManualExit}>
                 지금 판다 <span className="ml-1.5 text-[11px] opacity-60">Space</span>
               </Button>
-              {rep.movedStopPrice === undefined ? (
-                <button
-                  type="button"
-                  onClick={handleMoveStop}
-                  className="flex flex-col items-center gap-0.5 rounded-md border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground hover:border-warn hover:text-foreground"
-                >
-                  <span className="font-semibold">손절가 1R 더 내리기</span>
-                  <span className="text-[11px]">계획을 바꾸는 행동입니다</span>
-                </button>
-              ) : (
-                <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-[12px] leading-snug text-foreground">
-                  손절가를 <span className="num">{Math.round(rep.movedStopPrice).toLocaleString("ko-KR")}</span>
-                  원으로 내렸습니다. 계획에 없던 행동이라 이번 연습은 D로 기록됩니다.
-                </p>
-              )}
+              {/* 모바일에서는 이 패널이 화면 하단에 붙박이로 떠서 차트를 가린다 — 자주 안 쓰는 이 블록은
+                  아래 md:hidden 사본으로 빼서, 패널이 차지하는 높이에서 제외한다 */}
+              <div className="hidden md:block">
+                {rep.movedStopPrice === undefined ? (
+                  <button
+                    type="button"
+                    onClick={handleMoveStop}
+                    className="flex w-full flex-col items-center gap-0.5 rounded-md border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground hover:border-warn hover:text-foreground"
+                  >
+                    <span className="font-semibold">손절가 1R 더 내리기</span>
+                    <span className="text-[11px]">계획을 바꾸는 행동입니다</span>
+                  </button>
+                ) : (
+                  <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-[12px] leading-snug text-foreground">
+                    손절가를 <span className="num">{Math.round(rep.movedStopPrice).toLocaleString("ko-KR")}</span>
+                    원으로 내렸습니다. 계획에 없던 행동이라 이번 연습은 D로 기록됩니다.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -503,6 +511,26 @@ export default function PracticePage() {
           )}
         </div>
       </div>
+
+      {rep.state === "COMMITTED" && (
+        <div className="md:hidden">
+          {rep.movedStopPrice === undefined ? (
+            <button
+              type="button"
+              onClick={handleMoveStop}
+              className="flex w-full flex-col items-center gap-0.5 rounded-md border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground hover:border-warn hover:text-foreground"
+            >
+              <span className="font-semibold">손절가 1R 더 내리기</span>
+              <span className="text-[11px]">계획을 바꾸는 행동입니다</span>
+            </button>
+          ) : (
+            <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-[12px] leading-snug text-foreground">
+              손절가를 <span className="num">{Math.round(rep.movedStopPrice).toLocaleString("ko-KR")}</span>
+              원으로 내렸습니다. 계획에 없던 행동이라 이번 연습은 D로 기록됩니다.
+            </p>
+          )}
+        </div>
+      )}
 
       {showOverlay && rep.state === "EXECUTED" && rep.plan && rep.exitReason && (
         <GradingScreen
