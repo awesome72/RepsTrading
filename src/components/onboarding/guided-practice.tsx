@@ -156,6 +156,7 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
               accountSize={accountSize}
               riskPercent={riskPercent}
               candles={scenario.candles.slice(0, scenario.decisionIndex)}
+              logReps={[]}
               onSave={handleSavePlan}
             />
           )}

@@ -447,6 +447,7 @@ export default function PracticePage() {
               accountSize={accountSize}
               riskPercent={riskPercent}
               candles={scenario.candles.slice(0, scenario.decisionIndex)}
+              logReps={logReps}
               onSave={handleSavePlan}
               saving={saving}
             />

@@ -7,6 +7,7 @@ import {
   requiredSample,
   setupAccuracy,
   sigmaR,
+  targetHitRate,
 } from "./stats";
 import type { DecisionGrade, ExitReason, Rep, SetupChoice } from "@/lib/rep/types";
 import type { SetupLabel } from "@/lib/market/scenario";
@@ -150,5 +151,36 @@ describe("luckyBadTrades", () => {
       fakeRep({ r: 1, grade: "A", adhered: true }),
     ];
     expect(luckyBadTrades(reps)).toBeCloseTo(1 / 3);
+  });
+});
+
+describe("targetHitRate", () => {
+  it("표본이 최소치 미만이면 null", () => {
+    const reps = [
+      fakeRep({ r: 2, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "target" }),
+      fakeRep({ r: -1, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "stop" }),
+    ];
+    expect(targetHitRate(reps, "pullback")).toBeNull();
+  });
+
+  it("같은 셋업 선택 거래만 세서 목표 도달 비율을 계산한다", () => {
+    const reps = [
+      fakeRep({ r: 2, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "target" }),
+      fakeRep({ r: -1, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "stop" }),
+      fakeRep({ r: 1, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "manual" }),
+      // 다른 셋업 선택은 분모에서 빠진다
+      fakeRep({ r: 2, grade: "A", adhered: true, setupChoice: "breakout", exitReason: "target" }),
+    ];
+    expect(targetHitRate(reps, "pullback")).toEqual({ hit: 1, total: 3, rate: 1 / 3 });
+  });
+
+  it("지나간(pass) 거래는 실제 매매가 아니라 분모에서 제외된다", () => {
+    const reps = [
+      fakeRep({ r: 0, grade: "A", adhered: true, exitReason: "pass", setupLabel: "none" }),
+      fakeRep({ r: 2, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "target" }),
+      fakeRep({ r: 1, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "manual" }),
+      fakeRep({ r: -1, grade: "A", adhered: true, setupChoice: "pullback", exitReason: "stop" }),
+    ];
+    expect(targetHitRate(reps, "pullback")).toEqual({ hit: 1, total: 3, rate: 1 / 3 });
   });
 });

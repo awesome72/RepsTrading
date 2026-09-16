@@ -6,9 +6,10 @@ import { Term } from "@/components/term";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
 import { checkStopReasoning } from "@/lib/market/indicators";
 import type { Candle } from "@/lib/market/generator";
+import { targetHitRate } from "@/lib/metrics/stats";
 import { positionSize } from "@/lib/metrics/position";
 import { cn } from "@/lib/utils";
-import type { Plan, SetupChoice } from "@/lib/rep/types";
+import type { Plan, Rep, SetupChoice } from "@/lib/rep/types";
 
 type RepCardFormProps = {
   entryPrice: number;
@@ -17,6 +18,8 @@ type RepCardFormProps = {
   riskPercent: number;
   /** 지금까지 공개된 봉 — 손절가가 차트 구조에 걸치는지 즉석에서 보여주는 데 쓴다 */
   candles: Candle[];
+  /** 목표가 도달 비율을 본인 기록으로 비춰주는 데 쓴다 */
+  logReps: Rep[];
   onSave: (plan: Plan) => void;
   saving?: boolean;
 };
@@ -53,7 +56,15 @@ function formatWon(n: number): string {
   return Math.round(n).toLocaleString("ko-KR") + "원";
 }
 
-export function RepCardForm({ entryPrice, accountSize, riskPercent, candles, onSave, saving }: RepCardFormProps) {
+export function RepCardForm({
+  entryPrice,
+  accountSize,
+  riskPercent,
+  candles,
+  logReps,
+  onSave,
+  saving,
+}: RepCardFormProps) {
   const [setupChoice, setSetupChoice] = useState<SetupChoice | null>(null);
   const [stopInput, setStopInput] = useState("");
   const [targetMode, setTargetMode] = useState<number | "custom" | null>(null);
@@ -86,6 +97,11 @@ export function RepCardForm({ entryPrice, accountSize, riskPercent, candles, onS
     targetPrice !== null && riskPerShare > 0
       ? (targetPrice - entryPrice) / riskPerShare
       : 0;
+
+  const hitStat = useMemo(
+    () => (setupChoice ? targetHitRate(logReps, setupChoice) : null),
+    [logReps, setupChoice]
+  );
 
   const canSave = setupChoice !== null && stopValid && targetPrice !== null && targetPrice > entryPrice;
 
@@ -303,6 +319,13 @@ export function RepCardForm({ entryPrice, accountSize, riskPercent, candles, onS
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             손절폭의 {targetR.toFixed(1)}배 = 목표가{" "}
             <span className="num text-foreground">{formatWon(targetPrice)}</span>
+          </p>
+        )}
+        {targetPrice !== null && targetPrice > entryPrice && hitStat && setupChoice && (
+          <p className="text-[12px] text-muted-foreground">
+            지금까지 {SETUP_OPTIONS.find((o) => o.value === setupChoice)?.label} 거래{" "}
+            {hitStat.total}건 중 목표까지 도달한 비율{" "}
+            <span className="num font-semibold text-foreground">{Math.round(hitStat.rate * 100)}%</span>
           </p>
         )}
       </div>

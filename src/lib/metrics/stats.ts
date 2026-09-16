@@ -1,4 +1,7 @@
-import type { DecisionGrade, Rep } from "@/lib/rep/types";
+import type { DecisionGrade, Rep, SetupChoice } from "@/lib/rep/types";
+
+/** 목표가 도달 비율을 의미 있게 보여주기 위한 최소 표본 */
+const MIN_TARGET_HIT_SAMPLE = 3;
 
 /** 지나간(pass) 기록과 온보딩 가이드 연습은 실제 성과가 아니므로 지표에서 제외한다 */
 export function tradedReps(reps: Rep[]): Rep[] {
@@ -76,6 +79,19 @@ export function gradeDistribution(reps: Rep[]): GradeDistribution {
     if (r.decisionGrade) dist[r.decisionGrade]++;
   }
   return dist;
+}
+
+export type TargetHitStat = { hit: number; total: number; rate: number };
+
+/**
+ * 계획을 적는 중에 "이 셋업으로 산 거래가 실제로 목표까지 갔던 비율"을 보여주는 데 쓴다.
+ * 목표 R 값과 무관하게 exit_reason이 target이었는지만 본다 — 표본이 너무 적으면 null.
+ */
+export function targetHitRate(reps: Rep[], setupChoice: SetupChoice): TargetHitStat | null {
+  const relevant = tradedReps(reps).filter((r) => r.plan?.setupChoice === setupChoice);
+  if (relevant.length < MIN_TARGET_HIT_SAMPLE) return null;
+  const hit = relevant.filter((r) => r.exitReason === "target").length;
+  return { hit, total: relevant.length, rate: hit / relevant.length };
 }
 
 /** 등급 C·D이면서 결과가 이익(R>0)이었던 비율 — "운이 좋았던" 거래 */
