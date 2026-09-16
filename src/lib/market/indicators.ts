@@ -43,3 +43,24 @@ export function describeCandles(candles: Candle[]): string {
 
   return parts.join(", ") + ".";
 }
+
+export type StopReasonCheck = {
+  belowPriorLow: boolean;
+  belowMa20: boolean;
+};
+
+/**
+ * 손절가가 "직전 저점 아래" 또는 "20일선 아래"처럼 화면에 보이는 구조에 걸쳐 있는지 판별한다.
+ * 계획 작성 화면에서 입력 순간 보여주는 용도 — 등급을 매기지 않는다(그건 여전히 본인 판단 문항).
+ */
+export function checkStopReasoning(candles: Candle[], stopPrice: number): StopReasonCheck {
+  // 지금 봉 자체가 저점이면 "직전" 저점이 아니므로 제외하고, 그 앞 19봉에서만 찾는다
+  const priorCandles = candles.slice(-20, -1);
+  const priorLow = priorCandles.length > 0 ? Math.min(...priorCandles.map((c) => c.low)) : undefined;
+  const ma20 = smaSeries(candles, 20).at(-1);
+
+  return {
+    belowPriorLow: priorLow !== undefined && stopPrice < priorLow,
+    belowMa20: ma20 !== undefined && stopPrice < ma20,
+  };
+}

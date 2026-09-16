@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Term } from "@/components/term";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
+import { checkStopReasoning } from "@/lib/market/indicators";
+import type { Candle } from "@/lib/market/generator";
 import { positionSize } from "@/lib/metrics/position";
 import { cn } from "@/lib/utils";
 import type { Plan, SetupChoice } from "@/lib/rep/types";
@@ -13,6 +15,8 @@ type RepCardFormProps = {
   /** 온보딩에서 정한 계좌 금액과 한 번에 걸 위험 비율 — 1R 금액과 살 수량을 계산한다 */
   accountSize: number;
   riskPercent: number;
+  /** 지금까지 공개된 봉 — 손절가가 차트 구조에 걸치는지 즉석에서 보여주는 데 쓴다 */
+  candles: Candle[];
   onSave: (plan: Plan) => void;
   saving?: boolean;
 };
@@ -49,7 +53,7 @@ function formatWon(n: number): string {
   return Math.round(n).toLocaleString("ko-KR") + "원";
 }
 
-export function RepCardForm({ entryPrice, accountSize, riskPercent, onSave, saving }: RepCardFormProps) {
+export function RepCardForm({ entryPrice, accountSize, riskPercent, candles, onSave, saving }: RepCardFormProps) {
   const [setupChoice, setSetupChoice] = useState<SetupChoice | null>(null);
   const [stopInput, setStopInput] = useState("");
   const [targetMode, setTargetMode] = useState<number | "custom" | null>(null);
@@ -62,6 +66,7 @@ export function RepCardForm({ entryPrice, accountSize, riskPercent, onSave, savi
 
   const riskPerShare = stopValid ? entryPrice - stopPrice : 0;
   const stopPct = hasStop ? ((stopPrice - entryPrice) / entryPrice) * 100 : 0;
+  const stopReason = stopValid ? checkStopReasoning(candles, stopPrice) : null;
   // 온보딩에서 정한 계좌·위험 비율로, 손절 시 손실이 1R이 되도록 수량을 정한다
   const position = stopValid ? positionSize({ accountSize, riskPercent, entryPrice, stopPrice }) : null;
 
@@ -209,6 +214,19 @@ export function RepCardForm({ entryPrice, accountSize, riskPercent, onSave, savi
         {hasStop && !stopValid && (
           <p className="text-[12px] text-destructive">
             손절가는 현재가({formatWon(entryPrice)})보다 낮아야 합니다.
+          </p>
+        )}
+        {stopReason && (
+          <p className="text-[12px] text-muted-foreground">
+            {stopReason.belowPriorLow || stopReason.belowMa20 ? (
+              <>
+                {stopReason.belowPriorLow && <span className="text-good">직전 저점 아래 ✓</span>}
+                {stopReason.belowPriorLow && stopReason.belowMa20 && " · "}
+                {stopReason.belowMa20 && <span className="text-good">20일선 아래 ✓</span>}
+              </>
+            ) : (
+              <span className="text-warn">차트 구조 근거 없이 퍼센트로만 정한 것 같습니다.</span>
+            )}
           </p>
         )}
         {stopValid && (
