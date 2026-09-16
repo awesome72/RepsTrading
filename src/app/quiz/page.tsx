@@ -7,7 +7,8 @@ import { Term } from "@/components/term";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
 import { generateScenario, visibleCandles, type SetupLabel } from "@/lib/market/scenario";
 import { SETUP_HINT, SETUP_NAME } from "@/lib/market/setup-copy";
-import { gradeQuizAnswer, nextQuizSeed, quizScore, type QuizAnswer } from "@/lib/quiz/quiz";
+import { gradeQuizAnswer, nextQuizSeed, type QuizAnswer } from "@/lib/quiz/quiz";
+import { loadQuizLog, missedSeeds, recordQuizAnswer, todayQuizScore, type QuizLogEntry } from "@/lib/quiz/quiz-log";
 import { cn } from "@/lib/utils";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
@@ -29,12 +30,15 @@ const CHOICES: { value: SetupLabel; key: string; term?: string }[] = [
 /**
  * 셋업 판별만 빠르게 반복하는 연습. 사고 파는 과정 없이 "이 차트가 무슨 모양인가"만 묻고
  * 곧바로 정답을 보여준다 — 2단계(판별)에서 필요한 눈을 짧은 주기로 훈련한다.
- * 기록을 남기지 않으므로 게이트·통계에는 전혀 섞이지 않는다.
+ * 서버에는 아무것도 남기지 않으므로(게이트·통계에 안 섞임), 오늘 점수·오답 목록은
+ * 이 브라우저의 localStorage에만 쌓인다.
  */
 export default function QuizPage() {
   const [seed, setSeed] = useState<number | null>(null);
   const [answer, setAnswer] = useState<QuizAnswer | null>(null);
-  const [history, setHistory] = useState<QuizAnswer[]>([]);
+  const [log, setLog] = useState<QuizLogEntry[] | null>(null);
+  // 오답 복습 중에는 지금 문제가 review 큐의 몇 번째 seed인지 들고 있는다
+  const [reviewSeed, setReviewSeed] = useState<number | null>(null);
   // 모바일에서는 차트를 줄이고 선택지를 가로로 놓아, 스크롤 없이 차트와 선택지가 한 화면에 들어오게 한다
   const [compact, setCompact] = useState(false);
 
@@ -60,20 +64,48 @@ export default function QuizPage() {
   // 매번 랜덤이라 SSR과 일치할 수 없다 — 마운트 후 클라이언트에서만 만든다
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLog(loadQuizLog());
     setSeed(nextQuizSeed());
   }, []);
 
   const scenario = useMemo(() => (seed === null ? null : generateScenario(seed)), [seed]);
+  const missed = useMemo(() => (log === null ? [] : missedSeeds(log)), [log]);
+  const reviewing = reviewSeed !== null;
 
   function choose(choice: SetupLabel) {
-    if (seed === null || answer) return;
+    if (seed === null || answer || log === null) return;
     const graded = gradeQuizAnswer(seed, choice);
     setAnswer(graded);
-    setHistory((prev) => [...prev, graded]);
+    setLog(recordQuizAnswer(log, graded));
   }
 
   function next() {
     setAnswer(null);
+    if (reviewing) {
+      const remaining = missedSeeds(log ?? []).filter((s) => s !== reviewSeed);
+      if (remaining.length === 0) {
+        setReviewSeed(null);
+        setSeed(nextQuizSeed());
+        return;
+      }
+      const nextReview = remaining[0];
+      setReviewSeed(nextReview);
+      setSeed(nextReview);
+      return;
+    }
+    setSeed(nextQuizSeed());
+  }
+
+  function startReview() {
+    if (missed.length === 0) return;
+    setAnswer(null);
+    setReviewSeed(missed[0]);
+    setSeed(missed[0]);
+  }
+
+  function stopReview() {
+    setAnswer(null);
+    setReviewSeed(null);
     setSeed(nextQuizSeed());
   }
 
@@ -84,9 +116,9 @@ export default function QuizPage() {
     Enter: () => answer && next(),
   });
 
-  const score = quizScore(history);
+  const score = log === null ? null : todayQuizScore(log);
 
-  if (!scenario) {
+  if (!scenario || score === null) {
     return (
       <div className="flex flex-col gap-4 py-6">
         <div className="h-[420px] w-full rounded-lg border border-border bg-card" />
@@ -105,6 +137,7 @@ export default function QuizPage() {
         </div>
         {score.total > 0 && (
           <p className="num shrink-0 text-[13px] text-muted-foreground">
+            오늘{" "}
             <span className="font-semibold text-foreground">
               {score.correct}/{score.total}
             </span>{" "}
@@ -112,6 +145,27 @@ export default function QuizPage() {
           </p>
         )}
       </div>
+
+      {reviewing ? (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-[12px]">
+          <span className="text-foreground">
+            오답 복습 중 · 남은 {missedSeeds(log ?? []).length}문제
+          </span>
+          <button type="button" onClick={stopReview} className="font-semibold text-primary hover:underline">
+            그만하기
+          </button>
+        </div>
+      ) : (
+        missed.length > 0 && (
+          <button
+            type="button"
+            onClick={startReview}
+            className="self-start rounded-md border border-dashed border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:border-primary hover:text-foreground"
+          >
+            오답 복습 ({missed.length}문제)
+          </button>
+        )
+      )}
 
       <div className="flex flex-col gap-4 md:flex-row">
         <div className="md:w-[70%]">
