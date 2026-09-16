@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { BlindChart, type ChartMarker, type ChartPriceLine } from "@/components/blind-chart";
 import { Button } from "@/components/ui/button";
 import { AiAdvice } from "@/components/rep/ai-advice";
@@ -37,6 +38,52 @@ function formatR(r: number): string {
   return `${r > 0 ? "+" : ""}${r.toFixed(1)}R`;
 }
 
+const REVEAL_STEP_MS = 500;
+
+/** 등급 → R 카운트업 → 정답 순서로 0.5초씩 드러낸다. 정보는 그대로고 순서만 있다 */
+function useRevealStage(active: boolean, key: string): number {
+  const [stage, setStage] = useState(active ? 0 : 2);
+  useEffect(() => {
+    if (!active) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStage(0);
+    const t1 = setTimeout(() => setStage(1), REVEAL_STEP_MS);
+    const t2 = setTimeout(() => setStage(2), REVEAL_STEP_MS * 2);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return stage;
+}
+
+/** R 값을 0에서 목표치까지 짧게 카운트업한다 */
+function useCountUpR(target: number, active: boolean): number {
+  const [value, setValue] = useState(active ? 0 : target);
+  useEffect(() => {
+    if (!active) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setValue(target);
+      return;
+    }
+    setValue(0);
+    const steps = 15;
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      if (i >= steps) {
+        setValue(target);
+        clearInterval(id);
+      } else {
+        setValue(target * (i / steps));
+      }
+    }, REVEAL_STEP_MS / steps);
+    return () => clearInterval(id);
+  }, [active, target]);
+  return value;
+}
+
 type RevealPanelProps = {
   rep: Rep & { result: NonNullable<Rep["result"]> };
   /** 청산 이후 차트와 정답 셋업을 보여주기 위한 이번 연습의 전체 시나리오 */
@@ -68,6 +115,9 @@ export function RevealPanel({
 }: RevealPanelProps) {
   useHotkeys({ Enter: onNext });
   const guest = useRepLogStore((s) => s.mode === "guest");
+  const isTrade = rep.exitReason !== "pass";
+  const revealStage = useRevealStage(isTrade, rep.id);
+  const displayR = useCountUpR(rep.result.rMultiple, isTrade && revealStage >= 1);
 
   const coach = coachMessage && (
     <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
@@ -126,23 +176,6 @@ export function RevealPanel({
   return (
     <div className="flex flex-col gap-5">
       {coach}
-      <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-6">
-        <span className="text-[12px] text-muted-foreground">이번 판단의 결과</span>
-        <span
-          className={cn(
-            "num text-[40px] font-bold leading-none",
-            r > 0 ? "text-up" : r < 0 ? "text-down" : "text-foreground"
-          )}
-        >
-          {formatR(r)}
-        </span>
-      </div>
-
-      {rep.plan && <AfterExitChart rep={rep} plan={rep.plan} scenario={scenario} planned={planned} />}
-
-      {rep.plan && <SetupAnswer label={rep.setupLabel} choice={rep.plan.setupChoice} />}
-
-      {planned && <PlanComparison planned={planned} actualR={r} />}
 
       {graded && (
         <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card px-4 py-3 text-[13px]">
@@ -152,6 +185,33 @@ export function RevealPanel({
           <p className="text-[12px] leading-snug text-muted-foreground">{graded.desc}</p>
         </div>
       )}
+
+      <div
+        className={cn(
+          "flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-6 transition-opacity duration-300",
+          revealStage >= 1 ? "opacity-100" : "opacity-0"
+        )}
+      >
+        <span className="text-[12px] text-muted-foreground">이번 판단의 결과</span>
+        <span
+          className={cn(
+            "num text-[40px] font-bold leading-none",
+            r > 0 ? "text-up" : r < 0 ? "text-down" : "text-foreground"
+          )}
+        >
+          {formatR(displayR)}
+        </span>
+      </div>
+
+      {rep.plan && <AfterExitChart rep={rep} plan={rep.plan} scenario={scenario} planned={planned} />}
+
+      <div
+        className={cn("transition-opacity duration-300", revealStage >= 2 ? "opacity-100" : "opacity-0")}
+      >
+        {rep.plan && <SetupAnswer label={rep.setupLabel} choice={rep.plan.setupChoice} />}
+      </div>
+
+      {planned && <PlanComparison planned={planned} actualR={r} />}
 
       <div className="grid grid-cols-[auto_1fr_1fr] gap-1 text-center text-[12px]">
         <div className="flex items-center gap-1 pb-1">
