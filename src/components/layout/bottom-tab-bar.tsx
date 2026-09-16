@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ClipboardList, BarChart3 } from "lucide-react";
+import { Activity, ClipboardList, BarChart3, Shapes } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/practice", label: "연습", icon: Activity },
+  { href: "/quiz", label: "판별", icon: Shapes },
   { href: "/journal", label: "기록", icon: ClipboardList },
   { href: "/progress", label: "진척", icon: BarChart3 },
 ];

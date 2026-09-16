@@ -29,6 +29,12 @@ export function TopBar() {
         </span>
         <div className="flex items-center gap-3">
           <Link
+            href="/quiz"
+            className="text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            판별 퀴즈
+          </Link>
+          <Link
             href="/tutorial"
             className="text-[12px] text-muted-foreground hover:text-foreground"
           >
