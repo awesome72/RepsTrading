@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
 import { useRepLogStore } from "@/lib/rep/log-store";
@@ -7,6 +8,9 @@ import { adherenceRate, expectancy, requiredSample, tradedReps } from "@/lib/met
 import { DAILY_GOAL, todayTradedCount } from "@/lib/metrics/progress";
 
 const MIN_SAMPLE = 5;
+
+/** 아직 한 번도 연습하지 않은 방문자가 주로 보는 화면 — "현재 0회"는 의미 없는 소음이라 숨긴다 */
+const INTRO_PATHS = new Set(["/", "/onboarding", "/login"]);
 
 const ROW =
   "mx-auto flex h-9 w-full max-w-[1280px] items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-4 text-[12px] [scrollbar-width:none] sm:justify-center [&::-webkit-scrollbar]:hidden";
@@ -29,6 +33,9 @@ export function StatsBar() {
   const reps = useRepLogStore((s) => s.reps);
   const status = useRepLogStore((s) => s.status);
   const mode = useRepLogStore((s) => s.mode);
+  const pathname = usePathname();
+
+  if (INTRO_PATHS.has(pathname)) return null;
 
   // 서버 기록을 받기 전(또는 로그아웃 상태)에는 "0회"처럼 틀린 숫자를 보여주지 않는다
   if (status !== "ready") {
