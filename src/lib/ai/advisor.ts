@@ -9,6 +9,8 @@ function getClient(): Anthropic {
 }
 
 const MODEL = "claude-opus-5";
+/** 1차 모델이 안전상 거부하면(아직 한 글자도 못 보낸 경우에 한해) 한 번 더 시도할 모델 */
+const FALLBACK_MODEL = "claude-sonnet-5";
 
 const EXIT_LABEL: Record<ExitReason, string> = {
   stop: "손절가 도달",
@@ -76,9 +78,9 @@ function buildFactsMessage(f: AdviceFacts): string {
  * SDK 에러는 AdviceError로 바꿔 던지고, 끝났는데 거부(refusal)였거나 글자가 하나도 없으면 역시 던진다.
  * 호출 쪽이 도중에 멈추면(return) 진행 중인 요청을 끊는다.
  */
-export async function* streamAdvice(facts: AdviceFacts): AsyncGenerator<string> {
+async function* streamAdviceOnce(facts: AdviceFacts, model: string): AsyncGenerator<string> {
   const stream = getClient().messages.stream({
-    model: MODEL,
+    model,
     max_tokens: 600,
     system: SYSTEM_PROMPT,
     output_config: { effort: "low" },
@@ -107,4 +109,25 @@ export async function* streamAdvice(facts: AdviceFacts): AsyncGenerator<string> 
   } finally {
     if (!finished) stream.abort();
   }
+}
+
+/**
+ * 1차 모델이 첫 글자를 내놓기 전에 거부하면(아직 사용자에게 아무것도 보내지 않은 상태) 다른
+ * 모델로 딱 한 번 더 시도한다 — 요청당 최대 2회 호출. 첫 글자가 나온 뒤의 실패는 이미 사용자가
+ * 그 텍스트를 보고 있으므로 재시도하지 않는다(두 모델의 글이 섞여 보이는 걸 막기 위함).
+ */
+export async function* streamAdvice(facts: AdviceFacts): AsyncGenerator<string> {
+  const primary = streamAdviceOnce(facts, MODEL);
+  let first: IteratorResult<string>;
+  try {
+    first = await primary.next();
+  } catch (e) {
+    if (e instanceof AdviceError && e.code === "refused") {
+      yield* streamAdviceOnce(facts, FALLBACK_MODEL);
+      return;
+    }
+    throw e;
+  }
+  if (!first.done) yield first.value;
+  yield* primary;
 }
