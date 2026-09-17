@@ -114,6 +114,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 한국어는 어절 단위로 줄바꿈한다 — 기본값이면 "잠/급니다"처럼 단어 중간에서 끊긴다 */
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
   html {
     @apply font-sans;
