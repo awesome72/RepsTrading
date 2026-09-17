@@ -43,7 +43,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SessionSync />
           <TopBar />
           <StatsBar />
-          <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 pb-24 md:pb-6">
+          {/* 모바일 하단 고정 영역(탭바 64px + 3줄 고지)보다 넉넉히 비워야 마지막 버튼이 가려지지 않는다 */}
+          <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 pb-36 md:pb-12">
             {children}
           </main>
           <Disclaimer />
