@@ -408,7 +408,7 @@ export default function PracticePage() {
           />
         </div>
 
-        <div className="sticky bottom-32 z-10 rounded-lg border border-border bg-card p-4 md:static md:bottom-auto md:w-[30%]">
+        <div className="sticky bottom-28 z-10 rounded-lg border border-border bg-card p-4 md:static md:bottom-auto md:w-[30%]">
           {rep.state === "WATCHING" && !showForm && (
             <EntryDecision onEnter={handleEnter} onPass={handlePass} focusSetup={focusSetup} />
           )}
