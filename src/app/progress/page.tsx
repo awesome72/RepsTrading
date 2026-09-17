@@ -1,17 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip as RTooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { GateProgress } from "@/components/gate/gate-progress";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
@@ -34,6 +24,21 @@ import {
 import { apiGetProgressSummary, type ProgressSummary } from "@/lib/rep/api";
 import type { Rep } from "@/lib/rep/types";
 import { cn } from "@/lib/utils";
+
+// recharts는 표본이 5회 이상일 때만 필요하다 — 동적 import로 그 전까지는 내려받지 않는다
+// (스펙 문서 6절 "차트는 동적 import로 코드 스플리팅"; BlindChart와 같은 패턴).
+const ProgressCharts = dynamic(
+  () => import("@/components/progress/progress-charts").then((m) => m.ProgressCharts),
+  {
+    ssr: false,
+    loading: () => (
+      <>
+        <div className="h-[220px] w-full rounded-lg border border-border bg-card" />
+        <div className="h-[180px] w-full rounded-lg border border-border bg-card" />
+      </>
+    ),
+  }
+);
 
 const MIN_SAMPLE = 5;
 
@@ -173,8 +178,6 @@ function ProgressView({
     );
   }
 
-  const gradeBars = (["A", "B", "C", "D"] as const).map((g) => ({ grade: g, count: grades[g] }));
-
   return (
     <div className="flex flex-col gap-6 py-6">
       <h1 className="text-[20px] font-bold text-foreground">진척</h1>
@@ -212,53 +215,7 @@ function ProgressView({
 
       <WeeklySummary {...summary.weekly} />
 
-      <section className="flex flex-col gap-2">
-        <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
-          R 누적 곡선
-          <InfoDot content="매 판단마다 번 R을 계속 더한 값입니다. 선이 꾸준히 우상향이면 실력이 늘고 있다는 뜻이고, 들쭉날쭉하면 아직 표본이 부족하거나 계획을 자주 바꾸고 있다는 신호입니다." />
-        </h2>
-        <div className="h-[220px] w-full rounded-lg border border-border bg-card p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={curve}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="i" stroke="var(--muted-text)" fontSize={11} tickLine={false} />
-              <YAxis stroke="var(--muted-text)" fontSize={11} tickLine={false} />
-              <RTooltip
-                contentStyle={{
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  fontSize: 12,
-                }}
-              />
-              <Line type="monotone" dataKey="cum" stroke="var(--brand)" dot={false} strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
-          등급 분포
-          <InfoDot content="A·B는 계획대로 실행한 거래(A는 판단 근거까지 분명), C는 계획보다 먼저 판 거래, D는 손절을 내리거나 무시한 거래입니다. C·D가 많다면 계획을 지키는 것부터 다시 다잡아야 합니다." />
-        </h2>
-        <div className="h-[180px] w-full rounded-lg border border-border bg-card p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={gradeBars}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="grade" stroke="var(--muted-text)" fontSize={11} tickLine={false} />
-              <YAxis stroke="var(--muted-text)" fontSize={11} tickLine={false} allowDecimals={false} />
-              <RTooltip
-                contentStyle={{
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  fontSize: 12,
-                }}
-              />
-              <Bar dataKey="count" fill="var(--brand)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
+      <ProgressCharts curve={curve} grades={grades} />
 
       <section className="flex flex-col gap-2">
         <h2 className="flex items-center gap-1 text-[14px] font-semibold text-foreground">
