@@ -10,7 +10,8 @@ import { RevealPanel } from "@/components/rep/reveal-panel";
 import { generateScenario, pickSeedForMix, visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { useAccountStore } from "@/lib/account/store";
 import { useRepStore } from "@/lib/rep/store";
-import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
+import { judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
+import { useReplayLoop } from "@/lib/hooks/use-replay-loop";
 import type { DecisionGrade, Plan } from "@/lib/rep/types";
 
 const BlindChart = dynamic(() => import("@/components/blind-chart").then((m) => m.BlindChart), {
@@ -22,15 +23,22 @@ const GUIDE_REPLAY_MS = 350;
 export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [revealCount, setRevealCount] = useState(0);
 
   const chartRef = useRef<BlindChartHandle>(null);
-  const revealCountRef = useRef(0);
-  const exitedRef = useRef(false);
 
   const rep = useRepStore((s) => s.rep);
   const accountSize = useAccountStore((s) => s.accountSize);
   const riskPercent = useAccountStore((s) => s.riskPercent);
+
+  // 계획 저장 후 재생 — practice/page.tsx와 공유하는 훅. 가이드 연습은 항상 계획을 지킨 것으로 본다.
+  const { revealCount } = useReplayLoop({
+    active: rep?.state === "COMMITTED",
+    scenario,
+    plan: rep?.plan ?? null,
+    intervalMs: GUIDE_REPLAY_MS,
+    chartRef,
+    onExit: (exit) => useRepStore.getState().execute({ ...exit, adhered: true }),
+  });
 
   useEffect(() => {
     // 첫 연습은 방금 고른 셋업 모양으로 보여준다 (둘 다면 두 셋업 중 하나)
@@ -51,53 +59,6 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
       guided: true,
     });
   }, []);
-
-  useEffect(() => {
-    if (!rep || rep.state !== "COMMITTED" || !scenario || !rep.plan) return;
-    exitedRef.current = false;
-    const plan = rep.plan;
-
-    const id = setInterval(() => {
-      if (exitedRef.current) return;
-      const prev = revealCountRef.current;
-      const nextIndex = scenario.decisionIndex + prev;
-
-      if (nextIndex >= scenario.candles.length) {
-        exitedRef.current = true;
-        const lastIdx = scenario.decisionIndex + prev - 1;
-        useRepStore.getState().execute({
-          exitPrice: scenario.candles[lastIdx].close,
-          exitReason: "timeout",
-          exitIndex: lastIdx,
-          adhered: true,
-        });
-        return;
-      }
-
-      const candle = scenario.candles[nextIndex];
-      chartRef.current?.advance([candle]);
-      revealCountRef.current = prev + 1;
-      setRevealCount(prev + 1);
-
-      const hit = checkPlanExit(candle, plan);
-      if (hit) {
-        exitedRef.current = true;
-        navigator.vibrate?.(80);
-        useRepStore.getState().execute({ ...hit, exitIndex: nextIndex, adhered: true });
-      } else if (prev + 1 >= MAX_REPLAY_CANDLES) {
-        exitedRef.current = true;
-        useRepStore.getState().execute({
-          exitPrice: candle.close,
-          exitReason: "timeout",
-          exitIndex: nextIndex,
-          adhered: true,
-        });
-      }
-    }, GUIDE_REPLAY_MS);
-
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rep?.state, rep?.plan, scenario]);
 
   if (!scenario || !rep) {
     return <div className="h-[420px] w-full rounded-lg border border-border bg-card" />;

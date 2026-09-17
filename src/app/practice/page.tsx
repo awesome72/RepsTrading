@@ -12,7 +12,8 @@ import { GateTransition } from "@/components/gate/gate-transition";
 import { visibleCandles, type Scenario } from "@/lib/market/scenario";
 import { newPracticeScenario, scheduleIdle } from "@/lib/market/next-scenario";
 import { useRepStore } from "@/lib/rep/store";
-import { checkPlanExit, judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
+import { judgeExecution, MAX_REPLAY_CANDLES } from "@/lib/rep/plan-outcome";
+import { useReplayLoop } from "@/lib/hooks/use-replay-loop";
 import { GUEST_REP_LIMIT, useRepLogStore } from "@/lib/rep/log-store";
 import { decisionReps } from "@/lib/metrics/stats";
 import { GuestNotice } from "@/components/auth/guest-notice";
@@ -54,7 +55,6 @@ export default function PracticePage() {
 
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [revealCount, setRevealCount] = useState(0);
   const [speed, setSpeed] = useState<number>(1);
   const [apiError, setApiError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,8 +63,6 @@ export default function PracticePage() {
   const [feedbackSummary, setFeedbackSummary] = useState<HistorySummary | undefined>(undefined);
 
   const chartRef = useRef<BlindChartHandle>(null);
-  const revealCountRef = useRef(0);
-  const exitedRef = useRef(false);
   const repIdRef = useRef<string | null>(null);
   const nextScenarioRef = useRef<Scenario | null>(null);
 
@@ -88,6 +86,30 @@ export default function PracticePage() {
   const accountReady = useAccountStore((s) => (userId ? s.serverSynced || s.syncFailed : s.hydrated));
   const focusSetup = gateLevel === 1 && setupPreference !== "both" ? setupPreference : undefined;
 
+  // 계획 저장 후 재생: 봉을 하나씩 공개하며 손절/목표/시간초과를 감시한다 (guided-practice와 공유하는 훅)
+  const activePlan = rep?.plan ?? null;
+  const {
+    revealCount,
+    revealCountRef,
+    exitedRef,
+    restore: restoreReplay,
+    reset: resetReplay,
+  } = useReplayLoop({
+    active: rep?.state === "COMMITTED",
+    scenario,
+    plan: activePlan,
+    intervalMs: 1000 / speed,
+    chartRef,
+    // 손절가를 내렸다면 그 값으로 감시한다 — 매 봉마다 최신 값을 읽는다
+    getStopPrice: () => useRepStore.getState().rep?.movedStopPrice ?? activePlan?.stopPrice ?? 0,
+    onExit: submitExit,
+  });
+
+  // 새로고침 복구용으로 재생 진행 지점을 저장해둔다 (revealCount가 늘 때마다)
+  useEffect(() => {
+    if (scenario && revealCount > 0) persistPracticeSession(scenario, repIdRef.current, revealCount);
+  }, [revealCount, scenario]);
+
   useEffect(() => {
     if (userLoading || !accountReady) return;
     const restored = tryRestorePracticeSession();
@@ -96,8 +118,7 @@ export default function PracticePage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setScenario(restored.scenario);
       repIdRef.current = restored.repId;
-      revealCountRef.current = restored.revealCount;
-      setRevealCount(restored.revealCount);
+      restoreReplay(restored.revealCount);
       useRepStore.setState({ rep: restored.rep });
       return;
     }
@@ -108,56 +129,7 @@ export default function PracticePage() {
     useRepStore
       .getState()
       .startWatching({ scenarioId: next.id, seed: next.seed, setupLabel: next.setupLabel });
-  }, [userLoading, userId, accountReady]);
-
-  // 계획 저장 후 재생: 봉을 하나씩 공개하며 손절/목표/시간초과를 감시한다
-  useEffect(() => {
-    if (!rep || rep.state !== "COMMITTED" || !scenario || !rep.plan) return;
-    exitedRef.current = false;
-    const plan = rep.plan;
-    const intervalMs = 1000 / speed;
-    const finishExit = submitExit;
-
-    const id = setInterval(() => {
-      if (exitedRef.current) return;
-      const prev = revealCountRef.current;
-      const nextIndex = scenario.decisionIndex + prev;
-
-      if (nextIndex >= scenario.candles.length) {
-        exitedRef.current = true;
-        const lastIdx = scenario.decisionIndex + prev - 1;
-        finishExit({
-          exitPrice: scenario.candles[lastIdx].close,
-          exitReason: "timeout",
-          exitIndex: lastIdx,
-        });
-        return;
-      }
-
-      const candle = scenario.candles[nextIndex];
-      chartRef.current?.advance([candle]);
-      revealCountRef.current = prev + 1;
-      setRevealCount(prev + 1);
-      persistPracticeSession(scenario, repIdRef.current, prev + 1);
-
-      // 손절가를 내렸다면 그 값으로 감시한다 — 매 봉마다 최신 값을 읽는다
-      const movedStop = useRepStore.getState().rep?.movedStopPrice;
-      const hit = checkPlanExit(candle, { ...plan, stopPrice: movedStop ?? plan.stopPrice });
-      if (hit) {
-        exitedRef.current = true;
-        // 모바일에서 손절·목표 도달 순간을 짧은 진동으로 알린다 — 지원 안 하는 환경은 조용히 무시
-        navigator.vibrate?.(80);
-        finishExit({ ...hit, exitIndex: nextIndex });
-      } else if (prev + 1 >= MAX_REPLAY_CANDLES) {
-        exitedRef.current = true;
-        finishExit({ exitPrice: candle.close, exitReason: "timeout", exitIndex: nextIndex });
-      }
-    }, intervalMs);
-
-    return () => clearInterval(id);
-    // rep 전체가 아니라 state/plan 변화에만 반응한다 — rep은 매 전이마다 참조가 바뀐다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rep?.state, rep?.plan, scenario, speed]);
+  }, [userLoading, userId, accountReady, restoreReplay]);
 
   // 채점/결과 확인 중 여유 시간에 다음 연습 시나리오를 미리 만들어둔다
   useEffect(() => {
@@ -332,10 +304,8 @@ export default function PracticePage() {
     const next = nextScenarioRef.current ?? newPracticeScenario();
     nextScenarioRef.current = null;
     repIdRef.current = null;
-    revealCountRef.current = 0;
-    exitedRef.current = false;
+    resetReplay();
     setApiError(null);
-    setRevealCount(0);
     setShowForm(false);
     setFeedbackSummary(undefined);
     setScenario(next);
@@ -509,6 +479,9 @@ export default function PracticePage() {
               scenario={scenario}
               logReps={logReps}
               onNext={handleNext}
+              // repIdRef는 서버가 id를 준 뒤 리렌더 없이 값만 바꾸려고 일부러 쓰는 ref다(AI 조언
+              // 기능 도입 때 정한 패턴 — useRepStore의 rep.id는 DB id로 갱신되지 않는다).
+              // eslint-disable-next-line react-hooks/refs
               repId={repIdRef.current}
               feedbackSummary={feedbackSummary}
             />
@@ -564,6 +537,7 @@ export default function PracticePage() {
               scenario={scenario}
               logReps={logReps}
               onNext={handleNext}
+              // eslint-disable-next-line react-hooks/refs -- 위 RevealPanel과 같은 이유
               repId={repIdRef.current}
               feedbackSummary={feedbackSummary}
             />
