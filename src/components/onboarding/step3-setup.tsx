@@ -1,5 +1,6 @@
 "use client";
 
+import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SetupPreference } from "@/lib/account/store";
 
@@ -89,14 +90,30 @@ export function Step3Setup({
               aria-pressed={value === opt.value}
               onClick={() => onChange(opt.value)}
               className={cn(
-                "flex flex-col gap-2 rounded-lg border p-4 text-left transition-colors disabled:opacity-40",
-                value === opt.value
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-card hover:bg-surface-2"
+                "flex flex-col gap-2 rounded-lg border p-4 text-left transition-colors",
+                // 잠긴 선택지도 읽을 수는 있어야 한다 — 흐리게 만들지 않고 점선 테두리와 잠금 표시로 구분한다
+                locked
+                  ? "cursor-not-allowed border-dashed border-border bg-transparent"
+                  : value === opt.value
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-card hover:bg-surface-2"
               )}
             >
-              {Spark ? <Spark /> : <div className="h-10" />}
-              <span className="text-[14px] font-semibold text-foreground">{opt.label}</span>
+              {Spark ? (
+                <Spark />
+              ) : (
+                <div className="flex h-10 items-center">
+                  {locked && (
+                    <span className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                      <Lock className="size-3" aria-hidden />
+                      {opt.lockedBelowGate}단계에서 열림
+                    </span>
+                  )}
+                </div>
+              )}
+              <span className={cn("text-[14px] font-semibold", locked ? "text-muted-foreground" : "text-foreground")}>
+                {opt.label}
+              </span>
               <span className="text-[12px] leading-snug text-muted-foreground">
                 {!locked && opt.unlockedDesc ? opt.unlockedDesc : opt.desc}
               </span>
