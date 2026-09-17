@@ -145,6 +145,8 @@ export default function PracticePage() {
       const hit = checkPlanExit(candle, { ...plan, stopPrice: movedStop ?? plan.stopPrice });
       if (hit) {
         exitedRef.current = true;
+        // 모바일에서 손절·목표 도달 순간을 짧은 진동으로 알린다 — 지원 안 하는 환경은 조용히 무시
+        navigator.vibrate?.(80);
         finishExit({ ...hit, exitIndex: nextIndex });
       } else if (prev + 1 >= MAX_REPLAY_CANDLES) {
         exitedRef.current = true;

@@ -82,6 +82,7 @@ export function GuidedPractice({ onComplete }: { onComplete: () => void }) {
       const hit = checkPlanExit(candle, plan);
       if (hit) {
         exitedRef.current = true;
+        navigator.vibrate?.(80);
         useRepStore.getState().execute({ ...hit, exitIndex: nextIndex, adhered: true });
       } else if (prev + 1 >= MAX_REPLAY_CANDLES) {
         exitedRef.current = true;
