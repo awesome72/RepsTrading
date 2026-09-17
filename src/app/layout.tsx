@@ -29,10 +29,18 @@ const pretendard = localFont({
   display: "swap",
 });
 
+const TITLE = "REPS — 연습을 성적표로";
+const DESCRIPTION =
+  "REPS는 가상 데이터로 트레이딩 판단을 연습하고 채점하는 훈련 도구입니다. 실제 주문을 실행하지 않으며 투자 자문이 아닙니다.";
+
 export const metadata: Metadata = {
-  title: "REPS — 연습을 성적표로",
-  description:
-    "REPS는 가상 데이터로 트레이딩 판단을 연습하고 채점하는 훈련 도구입니다. 실제 주문을 실행하지 않으며 투자 자문이 아닙니다.",
+  // opengraph-image.png/twitter-image가 절대 URL로 해석되려면 필요하다 (없으면 상대 경로로 남아
+  // 카카오톡·슬랙 등 외부 크롤러가 이미지를 못 가져온다)
+  metadataBase: new URL("https://reps-trading.vercel.app"),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: { title: TITLE, description: DESCRIPTION, type: "website" },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
