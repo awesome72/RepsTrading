@@ -39,7 +39,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
   }
 
-  // 짧은 시간에 반복 호출로 Anthropic API 비용이 늘어나는 것을 막는다.
+  const { data: rep, error: fetchError } = await supabase
+    .from("reps")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (fetchError || !rep) {
+    return NextResponse.json({ error: "찾을 수 없습니다." }, { status: 404 });
+  }
+  // 결과 잠금과 같은 경계: 채점 전에는 R도 정답 셋업도 아직 알려줄 수 없다
+  if (rep.state !== "GRADED" && rep.state !== "REVEALED") {
+    return NextResponse.json({ error: "아직 결과를 알 수 없는 연습입니다." }, { status: 409 });
+  }
+
+  // 짧은 시간에 반복 호출로 Anthropic API 비용이 늘어나는 것을 막는다. 실제로 호출로 이어질
+  // 요청만 세어야 하므로 rep 존재·상태 검증을 통과한 뒤에 확인·기록한다(404/409는 안 센다).
   // 마이그레이션이 아직 적용되지 않아 테이블이 없으면(개발 환경 등) 제한 없이 통과시킨다.
   const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
   const { count, error: rateLimitError } = await supabase
@@ -56,19 +70,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
   await supabase.from("ai_advice_requests").insert({ user_id: user.id });
-
-  const { data: rep, error: fetchError } = await supabase
-    .from("reps")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (fetchError || !rep) {
-    return NextResponse.json({ error: "찾을 수 없습니다." }, { status: 404 });
-  }
-  // 결과 잠금과 같은 경계: 채점 전에는 R도 정답 셋업도 아직 알려줄 수 없다
-  if (rep.state !== "GRADED" && rep.state !== "REVEALED") {
-    return NextResponse.json({ error: "아직 결과를 알 수 없는 연습입니다." }, { status: 409 });
-  }
 
   const { scenario, plan } = rebuildPlan(rep);
   const setupCorrect =
