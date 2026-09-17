@@ -38,3 +38,9 @@ jobs:
       # fresh checkout before that file is generated). This is also the same command Vercel
       # runs, so a failure here means the real deploy would fail too.
       - run: npm run build
+
+      # Only the guest-mode path is exercised — it's the one flow that runs fully without
+      # login/Supabase, so it still works against the placeholder env above.
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 REPS is a Korean-language trading *practice* web app: users judge synthetic candlestick charts, write a plan (setup / stop / target) before buying, watch it replay, grade their own judgment, and only then see the result in R units. Stage gates (G1 실행 → G2 판별 → G3 전환) decide when someone is "ready". The original product spec and principles live in `REPS_바이브코딩_프롬프트팩.md` (MASTER section). Some rules have since changed in code — the code is authoritative (see "Spec doc" below).
 
-Stack: Next.js 15.5 App Router + React 19 + TypeScript (strict), Tailwind v4 + shadcn/ui, zustand, lightweight-charts, recharts, Supabase (auth + Postgres), Vitest. Deployed on Vercel; pushing to `main` auto-deploys production. `.github/workflows/ci.yml` runs lint + vitest + build (which itself type-checks) on every push/PR to `main` — **Vercel's own build does not run the test suite**, so this workflow is the only thing that does.
+Stack: Next.js 15.5 App Router + React 19 + TypeScript (strict), Tailwind v4 + shadcn/ui, zustand, lightweight-charts, recharts, Supabase (auth + Postgres), Vitest, Playwright. Deployed on Vercel; pushing to `main` auto-deploys production. `.github/workflows/ci.yml` runs lint + vitest + build (which itself type-checks) + a Playwright E2E smoke test on every push/PR to `main` — **Vercel's own build does not run any of this**, so this workflow is the only thing that does.
 
 `AGENTS.md` tells agents to read `node_modules/next/dist/docs/` first — that directory does not exist in this install. Ignore that instruction; this is a standard Next.js 15 App Router project.
 
@@ -20,12 +20,14 @@ npx tsc --noEmit                              # type-check only
 npm test                                      # vitest run (all)
 npx vitest run src/lib/gate/rules.test.ts     # one file
 npx vitest run -t "decideGateTransition"      # by test name
+npm run test:e2e                              # Playwright E2E (guest-mode flow only, e2e/)
 ```
 
 - If you ran `npm run build`, delete `.next/` before `npm run dev`, otherwise dev throws ENOENT errors from the shared build dir.
 - Env (`.env.local`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. `SUPABASE_SERVICE_ROLE_KEY` is not used by the app — only by ad-hoc admin/test scripts. `ANTHROPIC_API_KEY` powers the AI advice feature (server-only; also set it in the Vercel project's env vars for production) — without it, `/api/reps/[id]/advice` degrades to a 500 with a Korean error message instead of crashing.
 - DB schema: `supabase/migrations/*.sql`. There is no migration runner; SQL is applied by hand in the Supabase SQL editor, so prefer changes that don't need DDL.
 - Login is email magic-link only (no passwords).
+- `e2e/` (Playwright, `playwright.config.ts`) only covers the guest-mode practice flow — the one path that runs start-to-finish without Supabase, so it works against CI's placeholder env too. Anything login-gated still needs manual verification against a real (throwaway) Supabase account.
 
 ## Architecture
 
