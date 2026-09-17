@@ -119,7 +119,15 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
         autoSize: true,
       });
 
+      // 원화 가격은 소수점 없이 천 단위 구분 — 앱 다른 곳의 "38,042원" 표기와 맞춘다
+      const wonFormat = {
+        type: "custom" as const,
+        minMove: 1,
+        formatter: (price: number) => Math.round(price).toLocaleString("ko-KR"),
+      };
+
       const candleSeries = chart.addSeries(CandlestickSeries, {
+        priceFormat: wonFormat,
         upColor: up,
         downColor: down,
         borderVisible: false,
@@ -139,6 +147,7 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
       });
 
       const maSeries = chart.addSeries(LineSeries, {
+        priceFormat: wonFormat,
         color: bodyText,
         lineWidth: 1,
         crosshairMarkerVisible: false,
