@@ -1,6 +1,7 @@
 import { rMultiple } from "@/lib/metrics/r-multiple";
-import { computeCommitHash, deriveEntryPrice, rebuildPlan, validateExit } from "./server-guard";
+import { computeCommitHash, deriveScenarioFacts, rebuildPlan, validateExit } from "./server-guard";
 import { isGradeAllowed, judgeExecution } from "./plan-outcome";
+import type { SetupLabel } from "@/lib/market/scenario";
 import type { DecisionGrade, Rep, SetupChoice } from "./types";
 
 const SETUPS: SetupChoice[] = ["pullback", "breakout", "other"];
@@ -23,6 +24,8 @@ export type MigrationRow = {
   decision_grade: DecisionGrade;
   r_result: number;
   input_seconds: number | null;
+  setup_label: SetupLabel;
+  entry_price: number;
 };
 
 function isNum(n: unknown): n is number {
@@ -62,7 +65,7 @@ export function toMigrationRow(rep: Rep, userId: string): MigrationRow | null {
 
   if (rep.exitReason === "pass") {
     // /api/reps/pass와 같은 규칙: 기타 · 손절=진입가 · 0R
-    const entryPrice = deriveEntryPrice(rep.seed);
+    const { setupLabel, entryPrice } = deriveScenarioFacts(rep.seed);
     return {
       ...base("other", entryPrice, 0),
       exit_price: entryPrice,
@@ -71,6 +74,8 @@ export function toMigrationRow(rep: Rep, userId: string): MigrationRow | null {
       adhered: true,
       decision_grade: "A",
       r_result: 0,
+      setup_label: setupLabel,
+      entry_price: entryPrice,
     };
   }
 
@@ -117,5 +122,7 @@ export function toMigrationRow(rep: Rep, userId: string): MigrationRow | null {
     adhered: verdict.adhered,
     decision_grade: grade,
     r_result: rMultiple(plan.entryPrice, exitPrice, plan.stopPrice),
+    setup_label: scenario.setupLabel,
+    entry_price: plan.entryPrice,
   };
 }

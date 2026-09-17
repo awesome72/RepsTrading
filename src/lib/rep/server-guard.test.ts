@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCommitHash, deriveEntryPrice, validateExit } from "./server-guard";
+import { computeCommitHash, deriveScenarioFacts, validateExit } from "./server-guard";
 import { generateScenario } from "@/lib/market/scenario";
 
 describe("computeCommitHash", () => {
@@ -28,15 +28,18 @@ describe("computeCommitHash", () => {
   });
 });
 
-describe("deriveEntryPrice", () => {
-  it("같은 seed는 항상 같은 진입가를 낸다 (결정적)", () => {
-    expect(deriveEntryPrice(7)).toBe(deriveEntryPrice(7));
+describe("deriveScenarioFacts", () => {
+  it("같은 seed는 항상 같은 값을 낸다 (결정적)", () => {
+    expect(deriveScenarioFacts(7)).toEqual(deriveScenarioFacts(7));
   });
 
-  it("scenario.ts가 계산하는 진입가와 정확히 일치한다", () => {
+  it("scenario.ts가 계산하는 진입가·정답 셋업과 정확히 일치한다", () => {
     const scenario = generateScenario(7);
-    const expected = scenario.candles[scenario.decisionIndex - 1].close;
-    expect(deriveEntryPrice(7)).toBe(expected);
+    const expectedEntryPrice = scenario.candles[scenario.decisionIndex - 1].close;
+    expect(deriveScenarioFacts(7)).toEqual({
+      setupLabel: scenario.setupLabel,
+      entryPrice: expectedEntryPrice,
+    });
   });
 });
 

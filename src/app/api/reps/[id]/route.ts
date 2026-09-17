@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * 결과 잠금의 서버 강제 지점.
- * GRADED/REVEALED가 아니면 응답 페이로드에서 exit_price/r_result를 아예 지운다 —
- * 프론트에서 숨기는 게 아니라 서버가 보내지 않는다.
+ * GRADED/REVEALED가 아니면 응답 페이로드에서 exit_price/r_result/setup_label(정답)을
+ * 아예 지운다 — 프론트에서 숨기는 게 아니라 서버가 보내지 않는다.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,6 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (rep.state !== "GRADED" && rep.state !== "REVEALED") {
     delete payload.exit_price;
     delete payload.r_result;
+    delete payload.setup_label;
   }
 
   return NextResponse.json(payload);

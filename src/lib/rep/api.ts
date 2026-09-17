@@ -1,4 +1,4 @@
-import { generateScenario } from "@/lib/market/scenario";
+import { generateScenario, type SetupLabel } from "@/lib/market/scenario";
 import type { HistorySummary } from "@/lib/feedback/summary";
 import type { GateEvaluation, GateLevel } from "@/lib/gate/types";
 import type { PeriodStats } from "@/lib/metrics/progress";
@@ -24,6 +24,9 @@ export type ServerRep = {
   r_result?: number;
   input_seconds?: number;
   created_at: string;
+  /** 커밋 시점에 캐시된 값 — 이 마이그레이션 이전 행은 없을 수 있다(그때는 seed로 재생성) */
+  setup_label?: SetupLabel;
+  entry_price?: number;
 };
 
 async function asJson<T>(res: Response): Promise<T> {
@@ -174,17 +177,21 @@ export async function apiMigrate(reps: Rep[]): Promise<{ migrated: number; skipp
 
 /**
  * 서버 행을 lib/metrics·lib/gate가 기대하는 로컬 Rep 모양으로 바꾼다.
- * setupLabel(정답)은 저장하지 않으므로 scenario_seed로 다시 만들어낸다.
+ * setup_label/entry_price는 커밋 시점에 캐시된 값을 그대로 쓴다 — 매번 180봉을
+ * 재생성하는 비용을 없애기 위함. 캐시 이전(마이그레이션 전) 행만 seed로 재생성한다.
  */
 export function serverRepToRep(sr: ServerRep): Rep {
-  const scenario = generateScenario(sr.scenario_seed);
-  const entryPrice = scenario.candles[scenario.decisionIndex - 1].close;
+  // DB의 SQL NULL은 null로 온다(undefined가 아님) — 마이그레이션 이전 행 판별에 둘 다 잡아야 한다
+  const cached = sr.setup_label != null && sr.entry_price != null;
+  const scenario = cached ? null : generateScenario(sr.scenario_seed);
+  const setupLabel = sr.setup_label ?? scenario!.setupLabel;
+  const entryPrice = sr.entry_price ?? scenario!.candles[scenario!.decisionIndex - 1].close;
 
   return {
     id: sr.id,
     scenarioId: String(sr.scenario_seed),
     seed: sr.scenario_seed,
-    setupLabel: scenario.setupLabel,
+    setupLabel,
     state: sr.state,
     openedAt: new Date(sr.committed_at).getTime(),
     committedAt: new Date(sr.committed_at).getTime(),

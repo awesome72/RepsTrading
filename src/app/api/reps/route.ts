@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { computeCommitHash } from "@/lib/rep/server-guard";
+import { computeCommitHash, deriveScenarioFacts } from "@/lib/rep/server-guard";
 import type { SetupChoice } from "@/lib/rep/types";
 
 const VALID_SETUPS: SetupChoice[] = ["pullback", "breakout", "other"];
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     planTargetR: plan_target_r,
     committedAt,
   });
+  const { setupLabel, entryPrice } = deriveScenarioFacts(scenario_seed);
 
   const { data, error } = await supabase
     .from("reps")
@@ -55,6 +56,8 @@ export async function POST(request: Request) {
       plan_stop,
       plan_target_r,
       input_seconds,
+      setup_label: setupLabel,
+      entry_price: entryPrice,
     })
     .select("id, state, committed_at")
     .single();
@@ -119,12 +122,13 @@ export async function GET(request: Request) {
   const hasMore = limit !== null && (data?.length ?? 0) > limit;
   const rows = limit !== null ? (data ?? []).slice(0, limit) : (data ?? []);
 
-  // 채점 전 상태는 여기서도 결과 필드를 지운다 — 목록 API도 예외가 아니다.
+  // 채점 전 상태는 여기서도 결과 필드·정답(setup_label)을 지운다 — 목록 API도 예외가 아니다.
   const sanitized = rows.map((rep) => {
     if (rep.state !== "GRADED" && rep.state !== "REVEALED") {
       const payload: Record<string, unknown> = { ...rep };
       delete payload.exit_price;
       delete payload.r_result;
+      delete payload.setup_label;
       return payload;
     }
     return rep;

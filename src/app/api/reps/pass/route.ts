@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { computeCommitHash, deriveEntryPrice } from "@/lib/rep/server-guard";
+import { computeCommitHash, deriveScenarioFacts } from "@/lib/rep/server-guard";
 import { serverRepToRep, type ServerRep } from "@/lib/rep/api";
 import { computeHistorySummary } from "@/lib/feedback/summary";
 import { DAILY_GOAL } from "@/lib/metrics/progress";
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
   }
 
-  const entryPrice = deriveEntryPrice(scenario_seed);
+  const { setupLabel, entryPrice } = deriveScenarioFacts(scenario_seed);
   const committedAt = new Date().toISOString();
 
   const [{ data, error }, { data: beforeRows, error: beforeError }] = await Promise.all([
@@ -56,6 +56,8 @@ export async function POST(request: Request) {
         decision_grade: "A",
         r_result: 0,
         input_seconds: typeof input_seconds === "number" ? input_seconds : null,
+        setup_label: setupLabel,
+        entry_price: entryPrice,
       })
       .select("*")
       .single(),

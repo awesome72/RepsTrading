@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { generateScenario, type Scenario } from "@/lib/market/scenario";
+import { generateScenario, type Scenario, type SetupLabel } from "@/lib/market/scenario";
 import type { ExitReason, Plan, SetupChoice } from "@/lib/rep/types";
 
 /** 계획 저장 시점의 필드를 해시로 남긴다 (무결성 확인용, 변조 감지) */
@@ -22,10 +22,17 @@ export function computeCommitHash(params: {
   return createHash("sha256").update(raw).digest("hex");
 }
 
-/** scenario_seed로부터 진입가를 결정적으로 재생성한다 — 클라이언트를 신뢰하지 않는다 */
-export function deriveEntryPrice(scenarioSeed: number): number {
+/**
+ * 커밋 시점에 한 번만 계산해 reps.setup_label/entry_price로 캐시해둘 값.
+ * 이후 목록·요약 조회 때마다 180봉을 다시 만들지 않기 위한 성능 캐시일 뿐 —
+ * 판정·채점은 여전히 scenario_seed로부터의 재생성(rebuildPlan/validateExit)을 근거로 한다.
+ */
+export function deriveScenarioFacts(scenarioSeed: number): { setupLabel: SetupLabel; entryPrice: number } {
   const scenario = generateScenario(scenarioSeed);
-  return scenario.candles[scenario.decisionIndex - 1].close;
+  return {
+    setupLabel: scenario.setupLabel,
+    entryPrice: scenario.candles[scenario.decisionIndex - 1].close,
+  };
 }
 
 /** DB 행으로부터 시나리오와 계획을 다시 만든다 — 진입가·목표가는 저장하지 않고 seed로 재생성한다 */
