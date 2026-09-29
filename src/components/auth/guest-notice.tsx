@@ -12,13 +12,22 @@ type GuestNoticeProps = {
 export function GuestNotice({ count, variant, title }: GuestNoticeProps) {
   if (variant === "banner") {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-2 text-[12px] text-muted-foreground">
-        <span>
-          게스트로 연습 중 · <span className="num text-foreground">{count}/{GUEST_REP_LIMIT}</span>회 — 기록은 이
-          브라우저에만 저장되고, 로그인하면 계정으로 옮겨집니다.
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-[12px] text-muted-foreground">
+        <span className="flex items-center gap-2.5">
+          <span className="font-medium text-foreground">게스트 연습</span>
+          {/* 한도 중 몇 회를 썼는지 — 점수·배지가 아니라 남은 무료 횟수 표시다 */}
+          <span className="flex gap-1" aria-label={`${GUEST_REP_LIMIT}회 중 ${count}회 사용`}>
+            {Array.from({ length: GUEST_REP_LIMIT }, (_, i) => (
+              <span key={i} className={i < count ? "h-1.5 w-4 rounded-full bg-primary" : "h-1.5 w-4 rounded-full bg-surface-2"} />
+            ))}
+          </span>
+          <span className="num">
+            {count}/{GUEST_REP_LIMIT}
+          </span>
+          <span className="hidden sm:inline">· 기록은 이 브라우저에만 저장됩니다</span>
         </span>
-        <Link href="/login" className="font-semibold text-primary hover:underline">
-          로그인
+        <Link href="/login" className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
+          로그인하고 기록 지키기 →
         </Link>
       </div>
     );
@@ -32,13 +41,13 @@ export function GuestNotice({ count, variant, title }: GuestNoticeProps) {
       : "로그인하면 연습 기록이 계정에 저장되어 기기를 바꿔도 이어서 볼 수 있습니다.";
 
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-lg border border-border bg-card px-6 py-10 text-center">
+    <div className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-2xl border border-border bg-card px-6 py-12 text-center">
       <p className="text-[16px] font-bold text-foreground">{heading}</p>
       <p className="text-[13px] leading-relaxed text-muted-foreground">{body}</p>
       <p className="text-[12px] text-muted-foreground">비밀번호 없이 이메일 링크로 로그인합니다.</p>
       <Link
         href="/login"
-        className="mt-1 rounded-md bg-primary px-5 py-2.5 text-[14px] font-semibold text-primary-foreground"
+        className="mt-2 rounded-full bg-primary px-6 py-2.5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/85"
       >
         {variant === "limit" ? "로그인하고 이어서 하기" : "로그인"}
       </Link>

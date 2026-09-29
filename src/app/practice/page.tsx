@@ -369,7 +369,7 @@ export default function PracticePage() {
   return (
     <div className="flex flex-col gap-4 py-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[14px] text-muted-foreground">{topText}</p>
+        <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-foreground sm:text-[19px]">{topText}</h1>
         <p className="hidden text-[11px] text-muted-foreground/70 sm:block">{hint}</p>
       </div>
 
@@ -408,7 +408,7 @@ export default function PracticePage() {
           />
         </div>
 
-        <div className="sticky bottom-28 z-10 rounded-lg border border-border bg-card p-4 md:static md:bottom-auto md:w-[30%]">
+        <div className="sticky bottom-28 z-10 rounded-xl border border-border bg-card p-5 shadow-2xl shadow-black/60 md:static md:bottom-auto md:w-[30%] md:shadow-none">
           {rep.state === "WATCHING" && !showForm && (
             <EntryDecision onEnter={handleEnter} onPass={handlePass} focusSetup={focusSetup} />
           )}
@@ -431,17 +431,18 @@ export default function PracticePage() {
                 {revealCount}/{MAX_REPLAY_CANDLES}봉 진행 중
               </p>
               {replayGauge && <ReplayGauge status={replayGauge} />}
-              <div className="flex gap-1">
+              <div className="flex gap-0.5 rounded-lg border border-border bg-background p-0.5">
                 {SPEEDS.map((s) => (
                   <button
                     key={s}
                     type="button"
+                    aria-pressed={speed === s}
                     onClick={() => setSpeed(s)}
                     className={cn(
-                      "h-7 flex-1 rounded-md border text-[12px] font-semibold",
+                      "h-7 flex-1 rounded-md text-[12px] font-semibold transition-colors",
                       speed === s
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border bg-card text-muted-foreground"
+                        ? "bg-surface-2 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {s}배속

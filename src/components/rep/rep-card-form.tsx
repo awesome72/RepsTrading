@@ -165,8 +165,9 @@ export function RepCardForm({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <p className="text-[13px] font-semibold text-foreground">
-          [1] 어떤 모양이라서 사나요?
+        <p className="flex items-baseline gap-2 text-[13px] font-semibold text-foreground">
+          <span className="num text-[11px] font-medium text-primary">01</span>
+          <span>어떤 모양이라서 사나요?</span>
         </p>
         <div className="grid grid-cols-3 gap-2">
           {SETUP_OPTIONS.map((opt) => (
@@ -185,10 +186,10 @@ export function RepCardForm({
                 }
               }}
               className={cn(
-                "flex cursor-pointer flex-col gap-1 rounded-md border px-2 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex cursor-pointer flex-col gap-1 rounded-lg border px-2.5 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 setupChoice === opt.value
                   ? "border-primary bg-primary/10"
-                  : "border-border bg-card hover:bg-surface-2"
+                  : "border-border hover:bg-surface-2"
               )}
             >
               <span className="flex items-center justify-between text-[13px] font-semibold text-foreground">
@@ -204,8 +205,11 @@ export function RepCardForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-[13px] font-semibold text-foreground">
-          [2] 얼마까지 내려가면 틀린 건가요? (<Term id="son-jeol">손절</Term>가)
+        <p className="flex items-baseline gap-2 text-[13px] font-semibold text-foreground">
+          <span className="num text-[11px] font-medium text-primary">02</span>
+          <span>
+            얼마까지 내려가면 틀린 건가요? (<Term id="son-jeol">손절</Term>가)
+          </span>
         </p>
         <input
           type="number"
@@ -213,7 +217,7 @@ export function RepCardForm({
           value={stopInput}
           onChange={(e) => setStopInput(e.target.value)}
           placeholder={`현재가 ${formatWon(entryPrice)}보다 낮은 가격`}
-          className="num h-10 rounded-md border border-border bg-card px-3 text-[14px] text-foreground outline-none focus:border-primary"
+          className="num h-10 rounded-md border border-border bg-background px-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
         />
         <div className="flex gap-1.5">
           {STOP_PRESETS.map((pct) => (
@@ -221,7 +225,7 @@ export function RepCardForm({
               key={pct}
               type="button"
               onClick={() => applyStopPreset(pct)}
-              className="h-7 flex-1 rounded-md border border-border bg-card text-[12px] font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+              className="h-7 flex-1 rounded-md border border-border text-[12px] font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
             >
               {pct}%
             </button>
@@ -273,7 +277,10 @@ export function RepCardForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-[13px] font-semibold text-foreground">[3] 목표는 어디인가요?</p>
+        <p className="flex items-baseline gap-2 text-[13px] font-semibold text-foreground">
+          <span className="num text-[11px] font-medium text-primary">03</span>
+          <span>목표는 어디인가요?</span>
+        </p>
         <div className="grid grid-cols-4 gap-2">
           {TARGET_PRESETS.map((r) => (
             <button
@@ -285,7 +292,7 @@ export function RepCardForm({
                 "h-9 rounded-md border text-[13px] font-semibold transition-colors disabled:opacity-40",
                 targetMode === r
                   ? "border-primary bg-primary/10 text-foreground"
-                  : "border-border bg-card text-foreground hover:bg-surface-2"
+                  : "border-border text-foreground hover:bg-surface-2"
               )}
             >
               {r}R
@@ -299,7 +306,7 @@ export function RepCardForm({
               "h-9 rounded-md border text-[13px] font-semibold transition-colors disabled:opacity-40",
               targetMode === "custom"
                 ? "border-primary bg-primary/10 text-foreground"
-                : "border-border bg-card text-foreground hover:bg-surface-2"
+                : "border-border text-foreground hover:bg-surface-2"
             )}
           >
             직접입력
@@ -312,7 +319,7 @@ export function RepCardForm({
             value={customTargetInput}
             onChange={(e) => setCustomTargetInput(e.target.value)}
             placeholder="목표가"
-            className="num h-10 rounded-md border border-border bg-card px-3 text-[14px] text-foreground outline-none focus:border-primary"
+            className="num h-10 rounded-md border border-border bg-background px-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
           />
         )}
         {targetPrice !== null && targetPrice > entryPrice && (
