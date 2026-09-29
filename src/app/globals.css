@@ -59,11 +59,13 @@
   --font-pretendard: var(--font-pretendard-local), -apple-system, BlinkMacSystemFont, system-ui,
     sans-serif;
 
-  /* Binance 컨셉: 근검정 캔버스 + 노란 액센트. 상승/하락만 한국 관례(빨강/파랑) 유지 */
-  --canvas: #0b0e11;
-  --surface: #1e2329;
-  --surface-2: #2b3139;
-  --hairline: #2b3139;
+  /* 근검정 캔버스 + 노란 액센트. 표면은 한 단계씩만 밝아지고, 테두리는 면보다 살짝만 밝은 헤어라인으로
+     "상자"가 아니라 "층"으로 읽히게 한다. 노랑은 주요 행동·핵심 숫자에만 쓴다.
+     상승/하락만 한국 관례(빨강/파랑) 유지 */
+  --canvas: #0a0b0d;
+  --surface: #131519;
+  --surface-2: #1c1f24;
+  --hairline: #24282e;
   --body-text: #eaecef;
   --on-dark: #ffffff;
   --muted-text: #96a0ac; /* surface-2 배경 기준 4.5:1 대비를 만족하도록 조정 */
@@ -114,6 +116,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 화면 위쪽에만 아주 옅은 브랜드 빛 — 평평한 검정보다 깊이가 생긴다 */
+    background-image: radial-gradient(
+      1100px 520px at 50% -12%,
+      color-mix(in oklab, var(--brand) 6%, transparent),
+      transparent 70%
+    );
+    background-repeat: no-repeat;
     /* 한국어는 어절 단위로 줄바꿈한다 — 기본값이면 "잠/급니다"처럼 단어 중간에서 끊긴다 */
     word-break: keep-all;
     overflow-wrap: break-word;
@@ -124,6 +133,14 @@
 }
 
 @layer utilities {
+  /* 섹션 머리표: 작고 넓게 — 대괄호 번호([1]) 대신 쓴다 */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted-text);
+  }
   .num {
     font-family: var(--font-jetbrains-mono);
     font-variant-numeric: tabular-nums;

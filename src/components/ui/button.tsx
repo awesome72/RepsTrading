@@ -8,7 +8,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // 비활성일 때 반투명 노랑(흐린 올리브)으로 두면 고장 난 것처럼 보인다 — 중립 면으로 바꾼다
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary/85 disabled:bg-surface-2 disabled:text-muted-foreground disabled:opacity-100",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

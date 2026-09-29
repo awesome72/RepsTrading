@@ -66,6 +66,14 @@ function toneColor(tone: Tone): string {
   return cssVar("--body-text") || "#EAECEF";
 }
 
+/** 거래량 막대는 봉보다 한 단계 뒤로 물러나야 차트가 덜 시끄럽다 — 같은 색을 반투명으로 쓴다 */
+function withAlpha(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 function toChartCandle(c: Candle) {
   return {
     time: c.time as UTCTimestamp,
@@ -96,18 +104,18 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
 
       const up = cssVar("--up") || "#F6465D";
       const down = cssVar("--down") || "#3B82F6";
-      const surface2 = cssVar("--surface-2") || "#2B3139";
+      const surface = cssVar("--surface") || "#14171B";
       const bodyText = cssVar("--body-text") || "#EAECEF";
       const muted = cssVar("--muted-text") || "#707A8A";
 
       const chart = createChart(container, {
         layout: {
-          background: { color: surface2 },
+          background: { color: surface },
           textColor: muted,
         },
         grid: {
-          vertLines: { color: "rgba(255,255,255,0.04)" },
-          horzLines: { color: "rgba(255,255,255,0.04)" },
+          vertLines: { visible: false },
+          horzLines: { color: "rgba(255,255,255,0.035)" },
         },
         timeScale: { visible: false, borderVisible: false },
         rightPriceScale: {
@@ -148,7 +156,7 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
 
       const maSeries = chart.addSeries(LineSeries, {
         priceFormat: wonFormat,
-        color: bodyText,
+        color: withAlpha(bodyText, 0.55),
         lineWidth: 1,
         crosshairMarkerVisible: false,
         priceLineVisible: false,
@@ -181,7 +189,7 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
         all.map((c) => ({
           time: c.time as UTCTimestamp,
           value: c.volume,
-          color: c.close >= c.open ? cssVar("--up") : cssVar("--down"),
+          color: withAlpha(c.close >= c.open ? cssVar("--up") : cssVar("--down"), 0.32),
         }))
       );
       const ma20 = smaSeries(all, 20);
@@ -237,8 +245,8 @@ export const BlindChart = forwardRef<BlindChartHandle, BlindChartProps>(
 
     return (
       <div className={className}>
-        <div className="relative overflow-hidden rounded-lg border border-border">
-          <span className="absolute left-3 top-3 z-10 rounded bg-background/70 px-2 py-1 font-mono text-[11px] text-muted-foreground">
+        <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+          <span className="absolute left-3 top-3 z-10 font-mono text-[11px] tracking-wide text-muted-foreground/80">
             {label}
           </span>
           <p className="sr-only">{describeCandles(candles)}</p>
