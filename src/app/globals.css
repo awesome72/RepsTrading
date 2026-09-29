@@ -134,12 +134,12 @@
 
 @layer utilities {
   /* 섹션 머리표: 작고 넓게 — 대괄호 번호([1]) 대신 쓴다 */
+  /* 색은 text-* 클래스로 따로 준다 (여기서 color를 정하면 text-primary 등이 덮이지 않는다) */
   .eyebrow {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--muted-text);
   }
   .num {
     font-family: var(--font-jetbrains-mono);
