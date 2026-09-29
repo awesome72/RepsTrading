@@ -27,6 +27,7 @@ npm run test:e2e                              # Playwright E2E (guest-mode flow 
 - Env (`.env.local`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. `SUPABASE_SERVICE_ROLE_KEY` is not used by the app — only by ad-hoc admin/test scripts. `ANTHROPIC_API_KEY` powers the AI advice feature (server-only; also set it in the Vercel project's env vars for production) — without it, `/api/reps/[id]/advice` degrades to a 500 with a Korean error message instead of crashing.
 - DB schema: `supabase/migrations/*.sql`. There is no migration runner; SQL is applied by hand in the Supabase SQL editor, so prefer changes that don't need DDL.
 - Login is email magic-link only (no passwords).
+- Playwright locally can flake with the default 2 workers when the machine is loaded (dev-server startup timeout); use `npx playwright test --workers=1`. CI is the authoritative run.
 - `e2e/` (Playwright, `playwright.config.ts`) only covers the guest-mode practice flow — the one path that runs start-to-finish without Supabase, so it works against CI's placeholder env too. Anything login-gated still needs manual verification against a real (throwaway) Supabase account.
 
 ## Architecture
@@ -51,6 +52,7 @@ npm run test:e2e                              # Playwright E2E (guest-mode flow 
 
 ### Where data lives (client)
 - `useRepStore` (`lib/rep/store.ts`): the single in-progress rep. Mid-replay state is mirrored to `sessionStorage` so a refresh can resume.
+- `useReplayLoop` (`lib/hooks/use-replay-loop.ts`): the candle-advance tick loop (stop/target hit detection via `checkPlanExit`, vibration, `onExit` callback) shared by `/practice` and the onboarding `guided-practice`. Change replay timing/exit behavior there, not in either caller. `practice/page.tsx` reads `repIdRef.current` during render on purpose and carries `// eslint-disable-next-line react-hooks/refs` for it — don't "fix" it by removing the suppression without re-checking lint.
 - `useRepLogStore` (`lib/rep/log-store.ts`): every screen's rep history. `mode: "server"` = mirror of `GET /api/reps`; `mode: "guest"` = localStorage (`reps.guest.v1`), capped at `GUEST_REP_LIMIT` (5).
 - `useAccountStore` (`lib/account/store.ts`): onboarding settings (localStorage cache until login, then synced with `/api/account`); `gateLevel` comes only from the server.
 - `components/auth/session-sync.tsx` (mounted in the root layout) owns the login/logout lifecycle: on login it uploads legacy/guest local reps via `/api/migrate` (which re-derives R/adherence/grade server-side in `lib/rep/migration.ts`), then refreshes the log and syncs the account; on logout it resets the stores.
@@ -71,6 +73,9 @@ npm run test:e2e                              # Playwright E2E (guest-mode flow 
 - Performance is shown in R, never in won P&L; no leaderboards, badges, points, or streaks (spec principle). Showing 1R / position size in won when planning is fine.
 - Colors come from CSS variables in `src/app/globals.css` (dark theme with yellow `--brand`, derived from `DESIGN-binance.md`). Korean market convention: `--up` = red, `--down` = blue — never the US green/red mapping. Numbers use the `num` class (mono, tabular).
 - Keyboard-first practice flow via `useHotkeys` (`lib/hooks/use-hotkeys.ts`), which also matches physical keys so shortcuts work with the Korean IME on.
+- `/journal` works for guests too: both the server rows and the guest's local reps are adapted into one `JournalRow` shape (`app/journal/page.tsx`); filters/pagination/CSV export are logged-in only.
+- `/progress` loads recharts through `next/dynamic({ ssr: false })` (`components/progress/progress-charts.tsx`) to keep first-load JS small — keep new chart code inside that component rather than importing recharts statically in the page.
+- App-level shells: `app/not-found.tsx`, `app/global-error.tsx`, `app/opengraph-image.png` (+ `metadataBase` in `layout.tsx`). The mobile top nav collapses into a Radix dropdown (`components/ui/dropdown-menu.tsx`, via the `radix-ui` umbrella package).
 - Mobile viewport detection is `useCompactViewport` (`lib/hooks/use-compact-viewport.ts`, matches Tailwind's `md` breakpoint) — reuse it instead of adding another `matchMedia` listener.
 
 ## Spec doc
