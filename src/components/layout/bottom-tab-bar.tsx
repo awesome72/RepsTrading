@@ -2,33 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ClipboardList, BarChart3, Shapes } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const tabs = [
-  { href: "/practice", label: "연습", icon: Activity },
-  { href: "/quiz", label: "판별", icon: Shapes },
-  { href: "/journal", label: "기록", icon: ClipboardList },
-  { href: "/progress", label: "진척", icon: BarChart3 },
-];
+import { PRIMARY_NAV, isActivePath } from "./nav-items";
 
 export function BottomTabBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 border-t border-border bg-background md:hidden">
-      {tabs.map(({ href, label, icon: Icon }) => {
-        const active = pathname?.startsWith(href);
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 border-t border-border bg-background/95 backdrop-blur md:hidden">
+      {PRIMARY_NAV.map(({ href, label, icon: Icon }) => {
+        const active = isActivePath(pathname, href);
         return (
           <Link
             key={href}
             href={href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 text-[11px]",
-              active ? "text-primary" : "text-muted-foreground"
+              "relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium",
+              active ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+            {active && <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-primary" />}
+            <Icon size={20} strokeWidth={active ? 2.25 : 1.75} className={active ? "text-primary" : undefined} />
             {label}
           </Link>
         );
