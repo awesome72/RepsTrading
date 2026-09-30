@@ -33,19 +33,25 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex min-h-[calc(100dvh-3.5rem-2.25rem)] flex-col items-center justify-center gap-8 py-8">
-      <div className="flex items-center gap-1.5">
-        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "h-1.5 w-6 rounded-full",
-              i + 1 <= step ? "bg-primary" : "bg-surface-2"
-            )}
-          />
-        ))}
+      <div className="flex flex-col items-center gap-2.5">
+        <span className="num text-[11px] tracking-wide text-muted-foreground">
+          {step} / {TOTAL_STEPS}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "h-1 rounded-full transition-all duration-500",
+                i + 1 < step ? "w-6 bg-primary/60" : i + 1 === step ? "w-10 bg-primary" : "w-6 bg-surface-2"
+              )}
+            />
+          ))}
+        </div>
       </div>
 
-      <div className={cn("w-full px-4", step === 4 ? "max-w-4xl" : "max-w-2xl")}>
+      {/* 단계가 바뀔 때마다 새로 마운트되어 짧게 떠오른다 */}
+      <div key={step} className={cn("anim-rise w-full px-4", step === 4 ? "max-w-4xl" : "max-w-2xl")}>
         {step === 1 && <Step1Why />}
         {step === 2 && (
           <Step2Risk

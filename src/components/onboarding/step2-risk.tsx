@@ -33,7 +33,7 @@ export function Step2Risk({
 
   return (
     <div className="flex flex-col items-center gap-6 text-center">
-      <h1 className="text-[24px] font-bold text-foreground">얼마를 걸 건가</h1>
+      <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground">얼마를 걸 건가</h1>
 
       <div className="flex w-full max-w-xs flex-col gap-2 text-left">
         <label className="text-[13px] font-semibold text-foreground">계좌 금액</label>
@@ -42,7 +42,7 @@ export function Step2Risk({
           inputMode="numeric"
           value={accountSize}
           onChange={(e) => commitAccountSize(Number(e.target.value) || 0)}
-          className="num h-10 rounded-md border border-border bg-card px-3 text-[14px] text-foreground outline-none focus:border-primary"
+          className="num h-11 rounded-lg border border-border bg-background px-3 text-[15px] text-foreground outline-none transition-colors focus:border-primary"
         />
       </div>
 
@@ -66,12 +66,13 @@ export function Step2Risk({
         )}
       </div>
 
-      <div className="w-full max-w-xs rounded-lg border border-border bg-card p-4 text-[13px] leading-relaxed text-foreground">
-        <p>
-          한 번에 최대{" "}
-          <span className="num font-semibold text-primary">{formatWon(riskAmount)}</span>까지만
-          잃겠습니다 ({riskPercent.toFixed(1)}%)
-        </p>
+      {/* 이 화면의 주인공 — 앞으로 모든 성과를 재는 자(1R) */}
+      <div className="flex w-full max-w-sm flex-col items-center gap-2 rounded-2xl border border-border bg-card px-5 py-6 text-[13px] leading-relaxed text-foreground">
+        <span className="eyebrow text-muted-foreground">한 번에 최대 잃는 돈</span>
+        <span className="num text-[36px] font-bold leading-none tracking-[-0.02em] text-primary">
+          {formatWon(riskAmount)}
+        </span>
+        <span className="text-[12px] text-muted-foreground">계좌의 {riskPercent.toFixed(1)}%</span>
         <p className="mt-2 text-muted-foreground">
           이 {formatWon(riskAmount)}이 앞으로 계속 나올 &lsquo;<Term id="r-multiple">1R</Term>
           &rsquo;입니다.

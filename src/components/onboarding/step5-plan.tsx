@@ -9,15 +9,15 @@ const GATES = [
 export function Step5Plan() {
   return (
     <div className="flex flex-col items-center gap-6 text-center">
-      <h1 className="text-[24px] font-bold text-foreground">앞으로의 계획</h1>
+      <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground">앞으로의 계획</h1>
 
       <div className="flex w-full max-w-lg flex-col gap-2">
         {GATES.map((g, i) => (
           <div
             key={g.level}
             className={cn(
-              "flex items-center gap-3 rounded-lg border p-3 text-left",
-              i === 0 ? "border-primary bg-primary/10" : "border-border bg-card"
+              "flex items-center gap-3 rounded-xl border p-3.5 text-left",
+              i === 0 ? "border-primary/60 bg-primary/10" : "border-border"
             )}
           >
             <span
@@ -36,7 +36,7 @@ export function Step5Plan() {
         ))}
       </div>
 
-      <div className="w-full max-w-lg rounded-lg border border-border bg-card p-4 text-[13px] leading-relaxed">
+      <div className="w-full max-w-lg rounded-xl border border-border bg-card p-4 text-[13px] leading-relaxed">
         <p className="font-semibold text-foreground">1단계 목표: 300회</p>
         <p className="mt-1 text-muted-foreground">
           하루 10번씩 하면 한 달이면 도달합니다.

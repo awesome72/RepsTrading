@@ -114,7 +114,7 @@ export default function QuizPage() {
   if (!scenario || score === null) {
     return (
       <div className="flex flex-col gap-4 py-6">
-        <div className="h-[420px] w-full rounded-lg border border-border bg-card" />
+        <div className="h-[420px] w-full rounded-xl border border-border bg-card" />
       </div>
     );
   }
@@ -123,13 +123,13 @@ export default function QuizPage() {
     <div className="flex flex-col gap-4 py-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[20px] font-bold text-foreground">판별 퀴즈</h1>
+          <h1 className="text-[20px] font-bold tracking-[-0.01em] text-foreground">판별 퀴즈</h1>
           <p className="text-[12px] text-muted-foreground">
             사고파는 것 없이 모양만 맞혀봅니다. 이 기록은 통계·게이트에 들어가지 않습니다.
           </p>
         </div>
         {score.total > 0 && (
-          <p className="num shrink-0 text-[13px] text-muted-foreground">
+          <p className="num shrink-0 rounded-full border border-border px-3 py-1 text-[12px] text-muted-foreground">
             오늘{" "}
             <span className="font-semibold text-foreground">
               {score.correct}/{score.total}
@@ -140,7 +140,7 @@ export default function QuizPage() {
       </div>
 
       {reviewing ? (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-[12px]">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-[12px]">
           <span className="text-foreground">
             오답 복습 중 · 남은 {missedSeeds(log ?? []).length}문제
           </span>
@@ -153,7 +153,7 @@ export default function QuizPage() {
           <button
             type="button"
             onClick={startReview}
-            className="self-start rounded-md border border-dashed border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:border-primary hover:text-foreground"
+            className="self-start rounded-full border border-border px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
           >
             오답 복습 ({missed.length}문제)
           </button>
@@ -188,7 +188,7 @@ export default function QuizPage() {
           )}
         </div>
 
-        <div ref={panelRef} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 md:w-[30%]">
+        <div ref={panelRef} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 md:w-[30%]">
           <p className="text-[13px] font-semibold text-foreground">이 차트는 어떤 모양인가요?</p>
           <div className="grid grid-cols-3 gap-2 md:grid-cols-1">
             {CHOICES.map((c) => {
@@ -201,14 +201,14 @@ export default function QuizPage() {
                   disabled={!!answer}
                   onClick={() => choose(c.value)}
                   className={cn(
-                    "flex h-11 items-center justify-between rounded-md border px-3 text-[14px] font-semibold transition-colors",
+                    "flex h-11 items-center justify-between rounded-lg border px-3 text-[14px] font-semibold transition-all",
                     answer
                       ? isAnswer
                         ? "border-good bg-good/15 text-foreground"
                         : picked
                           ? "border-warn bg-warn/15 text-foreground"
-                          : "border-border bg-card text-muted-foreground"
-                      : "border-border bg-card text-foreground hover:border-primary"
+                          : "border-border text-muted-foreground/50"
+                      : "border-border text-foreground hover:-translate-y-px hover:border-primary"
                   )}
                 >
                   <span>{SETUP_NAME[c.value]}</span>
@@ -222,7 +222,7 @@ export default function QuizPage() {
             <>
               <div
                 className={cn(
-                  "flex flex-col gap-1 rounded-md border px-3 py-2 text-[13px] leading-relaxed",
+                  "anim-rise flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-[13px] leading-relaxed",
                   answer.correct ? "border-good/40 bg-good/10" : "border-warn/40 bg-warn/10"
                 )}
               >

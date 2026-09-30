@@ -77,7 +77,7 @@ export function Step3Setup({
 }) {
   return (
     <div className="flex flex-col items-center gap-6 text-center">
-      <h1 className="text-[24px] font-bold text-foreground">어떤 모양을 살 건가</h1>
+      <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground">어떤 모양을 살 건가</h1>
       <div className="grid w-full max-w-xl gap-3 sm:grid-cols-3">
         {OPTIONS.map((opt) => {
           const Spark = opt.spark;
@@ -90,13 +90,13 @@ export function Step3Setup({
               aria-pressed={value === opt.value}
               onClick={() => onChange(opt.value)}
               className={cn(
-                "flex flex-col gap-2 rounded-lg border p-4 text-left transition-colors",
+                "flex flex-col gap-2 rounded-xl border p-4 text-left transition-colors",
                 // 잠긴 선택지도 읽을 수는 있어야 한다 — 흐리게 만들지 않고 점선 테두리와 잠금 표시로 구분한다
                 locked
                   ? "cursor-not-allowed border-dashed border-border bg-transparent"
                   : value === opt.value
                     ? "border-primary bg-primary/10"
-                    : "border-border bg-card hover:bg-surface-2"
+                    : "border-border hover:bg-surface-2"
               )}
             >
               {Spark ? (
