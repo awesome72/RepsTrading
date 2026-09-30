@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import type { AdviceStreamEvent } from "@/lib/ai/advisor";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,8 @@ export function AiAdvice({ repId }: { repId: string | null }) {
   // (호출부에서 온보딩 가이드 연습은 이 컴포넌트 자체를 렌더링하지 않는다)
   if (guest) {
     return (
-      <p className="rounded-lg border border-dashed border-border px-4 py-3 text-[12px] leading-relaxed text-muted-foreground">
+      <p className="flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-[12px] leading-relaxed text-muted-foreground">
+        <Sparkles className="size-3.5 shrink-0 text-primary" aria-hidden />
         로그인하면 이번 판단에 대한 AI 코치의 조언을 받을 수 있습니다.
       </p>
     );
@@ -79,8 +81,10 @@ export function AiAdvice({ repId }: { repId: string | null }) {
 
   if (status === "streaming" || status === "done") {
     return (
-      <div className="flex flex-col gap-1 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
-        <p className="text-[11px] font-semibold text-primary">AI 코치의 조언</p>
+      <div className="anim-rise flex flex-col gap-1.5 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <p className="eyebrow flex items-center gap-1.5 text-primary">
+          <Sparkles className="size-3.5" aria-hidden /> AI 코치의 조언
+        </p>
         <p className="text-[13px] leading-relaxed text-foreground" aria-live="polite">
           {advice}
           {status === "streaming" && (
@@ -98,9 +102,10 @@ export function AiAdvice({ repId }: { repId: string | null }) {
         onClick={requestAdvice}
         disabled={status === "loading"}
         className={cn(
-          "h-10 rounded-md border border-dashed border-border text-[13px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:opacity-60"
+          "flex h-11 items-center justify-center gap-2 rounded-xl border border-border text-[13px] font-medium text-foreground transition-colors hover:border-primary disabled:opacity-60"
         )}
       >
+        <Sparkles className={cn("size-4 text-primary", status === "loading" && "animate-pulse")} aria-hidden />
         {status === "loading" ? "AI 코치가 이번 판단을 보고 있습니다..." : "AI 코치에게 물어보기"}
       </button>
       {error && (

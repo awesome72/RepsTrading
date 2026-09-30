@@ -89,17 +89,17 @@ export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedba
     remainingBefore !== null && remainingAfter !== null ? remainingAfter <= remainingBefore : null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3">
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
       {!isPass && (
         <div>
-          <p className="text-[11px] text-muted-foreground">이번 판정</p>
+          <p className="eyebrow mb-1 text-muted-foreground">이번 판정</p>
           <p className="text-[13px] leading-relaxed text-foreground">{describeJudgement(current)}</p>
         </div>
       )}
 
       {pace && (
         <div>
-          <p className="text-[11px] text-muted-foreground">결정 속도</p>
+          <p className="eyebrow mb-1 text-muted-foreground">결정 속도</p>
           <p className={cn("text-[13px] leading-relaxed", pace.tone === "fast" ? "text-warn" : "text-foreground")}>
             {pace.text}
           </p>
@@ -107,7 +107,7 @@ export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedba
       )}
 
       <div>
-        <p className="text-[11px] text-muted-foreground">이번으로 달라진 것</p>
+        <p className="eyebrow mb-1 text-muted-foreground">이번으로 달라진 것</p>
         <p className="num text-[13px] leading-relaxed">
           <span className={cn(adherenceImproved ? "text-good" : "text-warn")}>
             계획 지킴 {Math.round(adherenceBefore)}% → {Math.round(adherenceAfter)}%
@@ -124,9 +124,10 @@ export function ImmediateFeedback({ current, logReps, summary }: ImmediateFeedba
         {showGateTick && <GateTick level={gateLevel} tradedAfter={computed.tradedAfter} />}
       </div>
 
-      <div>
-        <p className="text-[11px] text-muted-foreground">다음 한 가지</p>
-        <p className="text-[13px] leading-relaxed text-foreground">{computed.message}</p>
+      {/* 이 카드에서 행동으로 옮길 유일한 줄 — 왼쪽 노란 선으로 구분한다 */}
+      <div className="border-l-2 border-primary pl-3">
+        <p className="eyebrow mb-1 text-primary">다음 한 가지</p>
+        <p className="text-[14px] font-medium leading-relaxed text-foreground">{computed.message}</p>
       </div>
     </div>
   );
