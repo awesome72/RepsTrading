@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Step1Why } from "@/components/onboarding/step1-why";
 import { Step2Risk } from "@/components/onboarding/step2-risk";
 import { Step3Setup } from "@/components/onboarding/step3-setup";
-import { GuidedPractice } from "@/components/onboarding/guided-practice";
 import { Step5Plan } from "@/components/onboarding/step5-plan";
 import { useAccountStore } from "@/lib/account/store";
 import { cn } from "@/lib/utils";
+
+// 4단계(가이드 연습)에서만 차트 라이브러리가 필요하다 — 1~3단계를 보는 동안 미리 받지 않게 나눠 싣는다
+const GuidedPractice = dynamic(
+  () => import("@/components/onboarding/guided-practice").then((m) => m.GuidedPractice),
+  { ssr: false, loading: () => <div className="h-[420px] w-full rounded-xl border border-border bg-card" /> }
+);
 
 const TOTAL_STEPS = 5;
 

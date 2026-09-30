@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAccountStore } from "@/lib/account/store";
 import { useUser } from "@/lib/auth/use-user";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { PRIMARY_NAV, isActivePath } from "./nav-items";
 import { StatsSummary } from "./stats-bar";
@@ -42,7 +42,7 @@ export function TopBar() {
   const pathname = usePathname();
 
   async function handleLogout() {
-    await createClient().auth.signOut();
+    await (await getBrowserClient()).auth.signOut();
     router.push("/login");
     router.refresh();
   }

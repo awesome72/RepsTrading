@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { decisionReps } from "@/lib/metrics/stats";
@@ -17,7 +17,7 @@ export default function LoginPage() {
     setStatus("sending");
     setError(null);
 
-    const supabase = createClient();
+    const supabase = await getBrowserClient();
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email,
       options: {

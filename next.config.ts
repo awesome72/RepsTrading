@@ -25,6 +25,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // radix-ui 통합 패키지는 import 한 줄에 select·toast·slider 등 쓰지 않는 컴포넌트까지 번들에 딸려왔다
+    // (첫 로드 JS에 ~100KB). 실제로 쓰는 것만 가져오게 한다.
+    optimizePackageImports: ["radix-ui"],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
