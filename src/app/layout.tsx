@@ -8,6 +8,7 @@ import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { StatsBar } from "@/components/layout/stats-bar";
 import { SessionSync } from "@/components/auth/session-sync";
 import { Disclaimer } from "@/components/layout/disclaimer";
+import { WebAnalytics } from "@/components/layout/analytics";
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </main>
           <Disclaimer />
           <BottomTabBar />
+          <WebAnalytics />
         </TooltipProvider>
       </body>
     </html>
