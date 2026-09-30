@@ -177,30 +177,42 @@ export function RevealPanel({
     <div className="flex flex-col gap-5">
       {coach}
 
-      {graded && (
-        <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card px-4 py-3 text-[13px]">
-          <p className="font-semibold text-foreground">
-            이번 채점: {graded.value} — {graded.label}
-          </p>
-          <p className="text-[12px] leading-snug text-muted-foreground">{graded.desc}</p>
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-6 transition-opacity duration-300",
-          revealStage >= 1 ? "opacity-100" : "opacity-0"
+      {/* 등급(과정)과 R(결과)을 한 카드에 나란히 — 등급이 먼저 보이고 R은 한 박자 뒤에 드러난다 */}
+      <div className="grid overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-[1.1fr_1fr]">
+        {graded && (
+          <div className="flex items-center gap-4 border-b border-border p-5 sm:border-b-0 sm:border-r">
+            <span
+              className={cn(
+                "num flex size-14 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-[28px] font-bold",
+                goodJudgment ? "text-good" : "text-warn"
+              )}
+            >
+              {graded.value}
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="eyebrow text-muted-foreground">이번 채점</span>
+              <p className="text-[14px] font-semibold leading-snug text-foreground">{graded.label}</p>
+              <p className="text-[12px] leading-snug text-muted-foreground">{graded.desc}</p>
+            </div>
+          </div>
         )}
-      >
-        <span className="text-[12px] text-muted-foreground">이번 판단의 결과</span>
-        <span
+        <div
           className={cn(
-            "num text-[40px] font-bold leading-none",
-            r > 0 ? "text-up" : r < 0 ? "text-down" : "text-foreground"
+            "flex flex-col items-center justify-center gap-2 px-5 py-7 transition-opacity duration-300",
+            !graded && "sm:col-span-2",
+            revealStage >= 1 ? "opacity-100" : "opacity-0"
           )}
         >
-          {formatR(displayR)}
-        </span>
+          <span className="eyebrow text-muted-foreground">이번 판단의 결과</span>
+          <span
+            className={cn(
+              "num text-[48px] font-bold leading-none tracking-[-0.02em]",
+              r > 0 ? "text-up" : r < 0 ? "text-down" : "text-foreground"
+            )}
+          >
+            {formatR(displayR)}
+          </span>
+        </div>
       </div>
 
       {rep.plan && <AfterExitChart rep={rep} plan={rep.plan} scenario={scenario} planned={planned} />}
@@ -213,22 +225,26 @@ export function RevealPanel({
 
       {planned && <PlanComparison planned={planned} actualR={r} />}
 
-      <div className="grid grid-cols-[auto_1fr_1fr] gap-1 text-center text-[12px]">
-        <div className="flex items-center gap-1 pb-1">
+      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+        <div className="flex items-center gap-1.5">
+          <span className="eyebrow text-muted-foreground">판단 × 결과</span>
           <InfoDot content="좋은 판단 = A/B 등급(계획을 지킴), 나쁜 판단 = C/D 등급(계획을 어김). 결과(R)와는 별개로, 이 표는 '어겼는데 벌었는지·지켰는데 잃었는지'를 보여줍니다." />
         </div>
-        <div className="py-1 text-muted-foreground">좋은 결과</div>
-        <div className="py-1 text-muted-foreground">나쁜 결과</div>
+        <div className="grid grid-cols-[auto_1fr_1fr] gap-1 text-center text-[12px]">
+          <div />
+          <div className="py-1 text-muted-foreground">좋은 결과</div>
+          <div className="py-1 text-muted-foreground">나쁜 결과</div>
 
-        <div className="flex items-center justify-end pr-2 text-muted-foreground">좋은 판단</div>
-        <MatrixCell active={goodJudgment && goodOutcome}>정상</MatrixCell>
-        <MatrixCell active={goodJudgment && !goodOutcome}>정상</MatrixCell>
+          <div className="flex items-center justify-end pr-2 text-muted-foreground">좋은 판단</div>
+          <MatrixCell active={goodJudgment && goodOutcome}>정상</MatrixCell>
+          <MatrixCell active={goodJudgment && !goodOutcome}>정상</MatrixCell>
 
-        <div className="flex items-center justify-end pr-2 text-muted-foreground">나쁜 판단</div>
-        <MatrixCell active={lucky} warn>
-          ⚠ 위험
-        </MatrixCell>
-        <MatrixCell active={!goodJudgment && !goodOutcome}>정상</MatrixCell>
+          <div className="flex items-center justify-end pr-2 text-muted-foreground">나쁜 판단</div>
+          <MatrixCell active={lucky} warn>
+            ⚠ 위험
+          </MatrixCell>
+          <MatrixCell active={!goodJudgment && !goodOutcome}>정상</MatrixCell>
+        </div>
       </div>
 
       {lucky && (
@@ -330,7 +346,7 @@ function SetupAnswer({ label, choice }: { label: SetupLabel; choice: SetupChoice
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-lg border px-4 py-3 text-[13px] leading-relaxed text-foreground",
+        "flex flex-col gap-1 rounded-xl border px-4 py-3.5 text-[13px] leading-relaxed text-foreground",
         correct ? "border-good/40 bg-good/10" : "border-border bg-card"
       )}
     >
@@ -363,8 +379,8 @@ function PlanComparison({ planned, actualR }: { planned: SimulatedOutcome; actua
         : "이번엔 계획을 바꾼 것이 나았지만, 계획을 그때그때 바꾸는 습관은 길게 보면 손해입니다.";
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-4 py-3 text-[13px] text-foreground">
-      <p className="text-[12px] text-muted-foreground">계획을 그대로 뒀다면</p>
+    <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card px-4 py-3.5 text-[13px] text-foreground">
+      <p className="eyebrow text-muted-foreground">계획을 그대로 뒀다면</p>
       <div className="num flex flex-wrap gap-x-6 gap-y-1">
         <span>
           계획대로: {PLANNED_EXIT_NAME[planned.exitReason]} → {formatR(planned.rMultiple)}
@@ -392,8 +408,8 @@ function MatrixCell({
         active
           ? warn
             ? "border-warn bg-warn/15 text-warn"
-            : "border-border bg-surface-2 text-foreground"
-          : "border-border/50 bg-transparent text-muted-foreground/50"
+            : "border-foreground/20 bg-surface-2 text-foreground"
+          : "border-border/60 bg-transparent text-muted-foreground/40"
       )}
     >
       {children}
