@@ -17,6 +17,7 @@ import { useReplayLoop } from "@/lib/hooks/use-replay-loop";
 import { GUEST_REP_LIMIT, useRepLogStore } from "@/lib/rep/log-store";
 import { decisionReps } from "@/lib/metrics/stats";
 import { GuestNotice } from "@/components/auth/guest-notice";
+import { GuestLimit } from "@/components/auth/guest-limit";
 import { useAccountStore } from "@/lib/account/store";
 import type { GateTransition as GateTransitionData } from "@/lib/gate/rules";
 import { apiEvaluateGate } from "@/lib/account/api";
@@ -341,7 +342,7 @@ export default function PracticePage() {
   if (guest && guestCount >= GUEST_REP_LIMIT && rep.state === "WATCHING") {
     return (
       <div className="py-10">
-        <GuestNotice variant="limit" count={guestCount} />
+        <GuestLimit reps={logReps} />
       </div>
     );
   }

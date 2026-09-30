@@ -4,8 +4,8 @@ import { GUEST_REP_LIMIT } from "@/lib/rep/log-store";
 type GuestNoticeProps = {
   /** 게스트로 이미 한 판단 수 (지나간 것 포함) */
   count: number;
-  /** banner: 연습 화면 상단 한 줄 / limit: 게스트 한도를 다 썼을 때 / page: 로그인이 필요한 화면 */
-  variant: "banner" | "limit" | "page";
+  /** banner: 연습 화면 상단 한 줄 / page: 로그인이 필요한 화면. (한도를 다 쓴 화면은 guest-limit.tsx) */
+  variant: "banner" | "page";
   title?: string;
 };
 
@@ -33,8 +33,7 @@ export function GuestNotice({ count, variant, title }: GuestNoticeProps) {
     );
   }
 
-  const heading =
-    title ?? (variant === "limit" ? `게스트 연습 ${GUEST_REP_LIMIT}회를 모두 마쳤습니다.` : "로그인하면 볼 수 있습니다.");
+  const heading = title ?? "로그인하면 볼 수 있습니다.";
   const body =
     count > 0
       ? `로그인하면 지금까지 게스트로 한 ${count}회가 그대로 옮겨지고, 기기를 바꿔도 이어서 연습할 수 있습니다.`
@@ -49,7 +48,7 @@ export function GuestNotice({ count, variant, title }: GuestNoticeProps) {
         href="/login"
         className="mt-2 rounded-full bg-primary px-6 py-2.5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/85"
       >
-        {variant === "limit" ? "로그인하고 이어서 하기" : "로그인"}
+        로그인
       </Link>
     </div>
   );
