@@ -20,11 +20,16 @@ const LEVEL_LABEL: Record<number, string> = { 1: "1단계 · 실행", 2: "2단�
 
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2" aria-label="REPS 홈">
-      <span className="flex size-6 items-center justify-center rounded-md bg-primary font-mono text-[13px] font-bold text-primary-foreground">
+    // 보이는 글자("REPS")가 링크 이름에 그대로 들어가야 한다 — 음성 명령("REPS 누르기")으로도 찾을 수 있게
+    <Link href="/" className="flex items-center gap-2">
+      <span
+        aria-hidden
+        className="flex size-6 items-center justify-center rounded-md bg-primary font-mono text-[13px] font-bold text-primary-foreground"
+      >
         R
       </span>
       <span className="text-[15px] font-bold tracking-[0.14em] text-foreground">REPS</span>
+      <span className="sr-only"> 홈</span>
     </Link>
   );
 }

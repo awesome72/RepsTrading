@@ -16,7 +16,7 @@ export function GuestNotice({ count, variant, title }: GuestNoticeProps) {
         <span className="flex items-center gap-2.5">
           <span className="font-medium text-foreground">게스트 연습</span>
           {/* 한도 중 몇 회를 썼는지 — 점수·배지가 아니라 남은 무료 횟수 표시다 */}
-          <span className="flex gap-1" aria-label={`${GUEST_REP_LIMIT}회 중 ${count}회 사용`}>
+          <span className="flex gap-1" role="img" aria-label={`${GUEST_REP_LIMIT}회 중 ${count}회 사용`}>
             {Array.from({ length: GUEST_REP_LIMIT }, (_, i) => (
               <span key={i} className={i < count ? "h-1.5 w-4 rounded-full bg-primary" : "h-1.5 w-4 rounded-full bg-surface-2"} />
             ))}
