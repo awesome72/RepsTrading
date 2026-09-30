@@ -69,15 +69,22 @@ export function Step3Setup({
   value,
   onChange,
   gateLevel = 1,
+  compact,
 }: {
   value: SetupPreference;
   onChange: (v: SetupPreference) => void;
   /** 게이트 단계 — "둘 다"는 이 값이 lockedBelowGate 미만일 때만 잠긴다. 생략하면 1단계로 취급한다 */
   gateLevel?: number;
+  /** 설정 화면: 온보딩용 큰 제목 대신 섹션 제목으로 */
+  compact?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-6 text-center">
-      <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground">어떤 모양을 살 건가</h1>
+      {compact ? (
+        <h2 className="text-[17px] font-semibold text-foreground">연습할 셋업</h2>
+      ) : (
+        <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground">어떤 모양을 살 건가</h1>
+      )}
       <div className="grid w-full max-w-xl gap-3 sm:grid-cols-3">
         {OPTIONS.map((opt) => {
           const Spark = opt.spark;

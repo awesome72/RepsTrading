@@ -196,7 +196,12 @@ export function TutorialPlayer() {
           />
         ) : (
           <div className="flex max-w-xl flex-col items-center gap-3 px-6 text-center">
-            <span className="font-mono text-[28px] font-bold text-primary">REPS</span>
+            <span className="flex items-center gap-2.5">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary font-mono text-[18px] font-bold text-primary-foreground">
+                R
+              </span>
+              <span className="text-[22px] font-bold tracking-[0.14em] text-white">REPS</span>
+            </span>
             <h2 className="text-[22px] font-bold text-white">{scene.title}</h2>
           </div>
         )}

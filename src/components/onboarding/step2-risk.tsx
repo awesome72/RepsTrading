@@ -11,10 +11,13 @@ export function Step2Risk({
   initialAccountSize,
   initialRiskPercent,
   onChange,
+  compact,
 }: {
   initialAccountSize: number;
   initialRiskPercent: number;
   onChange: (accountSize: number, riskPercent: number) => void;
+  /** 설정 화면: 온보딩용 큰 제목 대신 섹션 제목으로 */
+  compact?: boolean;
 }) {
   const [accountSize, setAccountSize] = useState(initialAccountSize);
   const [riskPercent, setRiskPercent] = useState(initialRiskPercent);
@@ -33,7 +36,11 @@ export function Step2Risk({
 
   return (
     <div className="flex flex-col items-center gap-6 text-center">
-      <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground">얼마를 걸 건가</h1>
+      {compact ? (
+        <h2 className="text-[17px] font-semibold text-foreground">위험 한도</h2>
+      ) : (
+        <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground">얼마를 걸 건가</h1>
+      )}
 
       <div className="flex w-full max-w-xs flex-col gap-2 text-left">
         <label className="text-[13px] font-semibold text-foreground">계좌 금액</label>
@@ -44,6 +51,8 @@ export function Step2Risk({
           onChange={(e) => commitAccountSize(Number(e.target.value) || 0)}
           className="num h-11 rounded-lg border border-border bg-background px-3 text-[15px] text-foreground outline-none transition-colors focus:border-primary"
         />
+        {/* 0이 여러 개인 숫자는 한눈에 안 읽힌다 — 천 단위로 끊어 보여준다 */}
+        <p className="num text-[12px] text-muted-foreground">{formatWon(accountSize)}</p>
       </div>
 
       <div className="flex w-full max-w-xs flex-col gap-2 text-left">

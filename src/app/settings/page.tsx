@@ -61,11 +61,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8 py-8">
-      <h1 className="text-[20px] font-bold text-foreground">설정</h1>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 py-8">
+      <div>
+        <h1 className="text-[20px] font-bold tracking-[-0.01em] text-foreground">설정</h1>
+        <p className="text-[13px] text-muted-foreground">온보딩에서 정한 값을 바꿉니다. 저장한 뒤의 연습부터 적용됩니다.</p>
+      </div>
 
       {guest && (
-        <p className="rounded-lg border border-dashed border-border px-4 py-3 text-[12px] leading-relaxed text-muted-foreground">
+        <p className="rounded-xl border border-border px-4 py-3 text-[12px] leading-relaxed text-muted-foreground">
           게스트로 이용 중입니다 — 이 설정은 이 브라우저에만 저장됩니다.{" "}
           <Link href="/login" className="font-semibold text-primary hover:underline">
             로그인
@@ -74,13 +77,18 @@ export default function SettingsPage() {
         </p>
       )}
 
-      <Step2Risk
-        initialAccountSize={accountSize}
-        initialRiskPercent={riskPercent}
-        onChange={handleRiskChange}
-      />
+      <section className="rounded-2xl border border-border bg-card px-5 py-7">
+        <Step2Risk
+          initialAccountSize={accountSize}
+          initialRiskPercent={riskPercent}
+          onChange={handleRiskChange}
+          compact
+        />
+      </section>
 
-      <Step3Setup value={setupPreference} onChange={handleSetupChange} gateLevel={gateLevel} />
+      <section className="rounded-2xl border border-border bg-card px-5 py-7">
+        <Step3Setup value={setupPreference} onChange={handleSetupChange} gateLevel={gateLevel} compact />
+      </section>
 
       <div className="flex flex-col items-center gap-2">
         <Button
