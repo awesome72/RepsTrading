@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -49,7 +49,12 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   openGraph: { title: TITLE, description: DESCRIPTION, type: "website" },
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  // iOS "홈 화면에 추가" 시 앱 이름과 상단 바 (manifest.ts와 짝)
+  appleWebApp: { capable: true, title: "REPS", statusBarStyle: "black" },
 };
+
+// 모바일 브라우저 상단 바와 설치 앱 창의 색 — 캔버스 색과 맞춘다
+export const viewport: Viewport = { themeColor: "#0a0b0d" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
