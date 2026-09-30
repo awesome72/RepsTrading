@@ -19,12 +19,17 @@ const jetbrainsMono = JetBrains_Mono({
 // (전에는 외부 CDN <link rel="stylesheet">였음 — 매 페이지 로드마다 별도 origin으로
 // CSS를 한 번 더 왕복해야 했다. next/font/local은 이 CSS를 빌드 타임에 인라인하고
 // 같은 origin에서 폰트 파일을 서빙해 그 왕복을 없앤다.)
+// 파일은 제작자가 공식 배포하는 서브셋(npm `pretendard` dist/web/static/woff2-subset —
+// KS X 1001 한글 2,350자 + 자주 쓰는 한글·영문·기호)이다. 전체판은 굵기당 ~770KB라
+// 4개면 3MB를 모든 페이지가 미리 받아야 했다(모바일 첫 화면 17초대). 서브셋은 굵기당 ~268KB.
+// 목록에 없는 드문 글자(예: ▲▼)는 시스템 폰트로 대신 그려진다.
+// 직접 서브셋하지 않는 이유: 라이선스(OFL)의 예약 폰트 이름 조항 때문에 수정본은 이름을 바꿔야 한다.
 const pretendard = localFont({
   src: [
-    { path: "./fonts/pretendard/Pretendard-Regular.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/pretendard/Pretendard-Medium.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/pretendard/Pretendard-SemiBold.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/pretendard/Pretendard-Bold.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/pretendard/Pretendard-Regular.subset.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/pretendard/Pretendard-Medium.subset.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/pretendard/Pretendard-SemiBold.subset.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/pretendard/Pretendard-Bold.subset.woff2", weight: "700", style: "normal" },
   ],
   variable: "--font-pretendard-local",
   display: "swap",

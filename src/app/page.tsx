@@ -65,13 +65,19 @@ export default function Home() {
             성적표로 바꿉니다
           </h1>
           <p
-            className="anim-rise max-w-md text-[15px] leading-relaxed text-muted-foreground sm:text-[16px]"
+            // 폰트가 도착하며 줄바꿈이 바뀌어도 아래 목업이 밀리지 않게 3줄 높이를 미리 잡아둔다 (CLS)
+            className="anim-rise min-h-[4.9em] max-w-md text-[15px] leading-relaxed text-muted-foreground sm:min-h-0 sm:text-[16px]"
             style={delay(160)}
           >
             차트를 보고 판단하고, 결과를 보기 전에 스스로 채점합니다. 실전에 나갈 시점은 기분이 아니라
             숫자가 정합니다.
           </p>
-          <div className="anim-rise flex flex-wrap items-center gap-3 pt-2" style={delay(240)}>
+          {/* 폰에서는 항상 두 줄로 쌓는다 — 한 줄에 들어가는지가 폰트(대체 폰트 ↔ Pretendard)에 따라 달라져
+              폰트가 도착하는 순간 아래 전체가 60px 튀어 올랐다 (CLS 0.16) */}
+          <div
+            className="anim-rise flex w-full flex-col items-stretch gap-2 pt-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
+            style={delay(240)}
+          >
             <Button asChild size="lg" className="h-12 rounded-full px-7 text-[15px] font-semibold">
               <Link href="/onboarding">
                 5분 만에 첫 연습 시작 <ArrowRight className="size-4" />
