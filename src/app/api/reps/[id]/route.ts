@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { stripUngradedResult } from "@/lib/rep/result-lock";
 
 /**
  * 결과 잠금의 서버 강제 지점.
- * GRADED/REVEALED가 아니면 응답 페이로드에서 exit_price/r_result/setup_label(정답)을
- * 아예 지운다 — 프론트에서 숨기는 게 아니라 서버가 보내지 않는다.
+ * GRADED/REVEALED가 아니면 응답에서 결과·정답 필드를 아예 지운다(lib/rep/result-lock.ts)
+ * — 프론트에서 숨기는 게 아니라 서버가 보내지 않는다.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,12 +22,5 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "찾을 수 없습니다." }, { status: 404 });
   }
 
-  const payload: Record<string, unknown> = { ...rep };
-  if (rep.state !== "GRADED" && rep.state !== "REVEALED") {
-    delete payload.exit_price;
-    delete payload.r_result;
-    delete payload.setup_label;
-  }
-
-  return NextResponse.json(payload);
+  return NextResponse.json(stripUngradedResult(rep));
 }

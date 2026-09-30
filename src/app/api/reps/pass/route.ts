@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { stripUngradedResult } from "@/lib/rep/result-lock";
 import { createClient } from "@/lib/supabase/server";
 import { computeCommitHash, deriveScenarioFacts } from "@/lib/rep/server-guard";
 import { serverRepToRep, type ServerRep } from "@/lib/rep/api";
@@ -78,5 +79,6 @@ export async function POST(request: Request) {
       )
     : undefined;
 
-  return NextResponse.json({ ...data, feedback });
+  // 지나가기는 한 번에 REVEALED로 저장되지만, reps 행을 응답하는 모든 경로는 같은 잠금을 거친다
+  return NextResponse.json({ ...stripUngradedResult(data), feedback });
 }

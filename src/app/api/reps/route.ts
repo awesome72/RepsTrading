@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { stripUngradedResult } from "@/lib/rep/result-lock";
 import { createClient } from "@/lib/supabase/server";
 import { computeCommitHash, deriveScenarioFacts } from "@/lib/rep/server-guard";
 import type { SetupChoice } from "@/lib/rep/types";
@@ -123,16 +124,7 @@ export async function GET(request: Request) {
   const rows = limit !== null ? (data ?? []).slice(0, limit) : (data ?? []);
 
   // 채점 전 상태는 여기서도 결과 필드·정답(setup_label)을 지운다 — 목록 API도 예외가 아니다.
-  const sanitized = rows.map((rep) => {
-    if (rep.state !== "GRADED" && rep.state !== "REVEALED") {
-      const payload: Record<string, unknown> = { ...rep };
-      delete payload.exit_price;
-      delete payload.r_result;
-      delete payload.setup_label;
-      return payload;
-    }
-    return rep;
-  });
+  const sanitized = rows.map(stripUngradedResult);
 
   return NextResponse.json(limit !== null ? { reps: sanitized, hasMore } : sanitized);
 }
