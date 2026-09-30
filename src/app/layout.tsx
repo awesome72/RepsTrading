@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
+import { SITE_URL } from "@/lib/seo/pages";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TopBar } from "@/components/layout/top-bar";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
@@ -42,8 +43,9 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   // opengraph-image.png/twitter-image가 절대 URL로 해석되려면 필요하다 (없으면 상대 경로로 남아
   // 카카오톡·슬랙 등 외부 크롤러가 이미지를 못 가져온다)
-  metadataBase: new URL("https://reps-trading.vercel.app"),
-  title: TITLE,
+  metadataBase: new URL(SITE_URL),
+  // 하위 경로는 "연습 — REPS"처럼 제목만 바꾼다 (lib/seo/pages.ts)
+  title: { default: TITLE, template: "%s — REPS" },
   description: DESCRIPTION,
   openGraph: { title: TITLE, description: DESCRIPTION, type: "website" },
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Ban, Ruler, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,10 @@ const nots = [
   },
   { icon: Users, title: "순위·포인트가 없습니다", body: "남과 비교하지 않습니다. 기준은 내 기록의 숫자뿐입니다." },
 ];
+
+// 제목·설명은 루트 레이아웃 기본값을 쓴다. canonical만 홈에 직접 둔다 — 루트에 두면 404 등 자기 레이아웃이
+// 없는 화면까지 홈을 canonical로 물려받는다.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const delay = (ms: number) => ({ animationDelay: `${ms}ms` });
 
