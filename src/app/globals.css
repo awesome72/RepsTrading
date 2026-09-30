@@ -174,6 +174,11 @@
   from { stroke-dashoffset: 1; }
   to { stroke-dashoffset: 0; }
 }
+/* 소개 영상: 장면이 흐르는 동안 설명하는 지점으로 천천히 다가간다(transform-origin = 초점) */
+@keyframes kenburns {
+  from { transform: scale(var(--kb-from, 1)); }
+  to { transform: scale(var(--kb-zoom, 1.12)); }
+}
 @keyframes lock {
   0% { opacity: 0; transform: scale(0.6); }
   60% { opacity: 1; transform: scale(1.15); }
@@ -192,6 +197,9 @@
     stroke-dasharray: 1;
     animation: draw 1s ease-out both;
   }
+  .anim-kenburns {
+    animation: kenburns var(--kb-ms, 8000ms) cubic-bezier(0.25, 0.1, 0.25, 1) both;
+  }
   .anim-lock {
     transform-origin: center;
     animation: lock 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
@@ -203,7 +211,8 @@
   .anim-fade,
   .anim-candle,
   .anim-draw,
-  .anim-lock {
+  .anim-lock,
+  .anim-kenburns {
     animation: none !important;
   }
   .anim-draw { stroke-dasharray: none; }
