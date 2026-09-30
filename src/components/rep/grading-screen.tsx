@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Lock } from "lucide-react";
 import { BlindChart } from "@/components/blind-chart";
 import { Button } from "@/components/ui/button";
 import { useHotkeys } from "@/lib/hooks/use-hotkeys";
@@ -98,7 +99,8 @@ export function GradingScreen({
           </div>
         )}
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-[26px] font-bold leading-snug text-foreground">
+          <span className="eyebrow text-primary">채점</span>
+          <h1 className="text-[26px] font-bold leading-snug tracking-[-0.02em] text-foreground">
             결과를 보기 전에, 당신의 판단부터 채점합니다.
           </h1>
           <p className="max-w-md text-[13px] leading-relaxed text-muted-foreground">
@@ -109,23 +111,38 @@ export function GradingScreen({
 
         <BlindChart candles={candles} label="이번 판단" hidePriceLabels height={220} />
 
-        <div className="flex flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3 text-[13px] text-foreground">
-          <p>셋업: {SETUP_LABEL[plan.setupChoice]}</p>
-          <p className="num">
-            손절가: {won(plan.stopPrice)}
-            {movedStopPrice !== undefined && ` → ${won(movedStopPrice)} (재생 중 내림)`}
-          </p>
-          <p className="num">
-            목표: {won(plan.targetPrice)} ({Number(plan.targetR.toFixed(2))}R)
-          </p>
-          <p className="pt-1 text-muted-foreground">{EXIT_LABEL[exitReason]}</p>
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+          <dl className="grid grid-cols-3 gap-3 text-[13px]">
+            <div className="flex flex-col gap-1">
+              <dt className="eyebrow text-muted-foreground">셋업</dt>
+              <dd className="font-semibold text-foreground">{SETUP_LABEL[plan.setupChoice]}</dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="eyebrow text-muted-foreground">손절</dt>
+              <dd className="num text-down">
+                {won(plan.stopPrice)}
+                {movedStopPrice !== undefined && (
+                  <span className="block text-[11px] text-warn">→ {won(movedStopPrice)} (재생 중 내림)</span>
+                )}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="eyebrow text-muted-foreground">목표</dt>
+              <dd className="num text-up">
+                {won(plan.targetPrice)} <span className="text-muted-foreground">({Number(plan.targetR.toFixed(2))}R)</span>
+              </dd>
+            </div>
+          </dl>
+          <p className="border-t border-border pt-3 text-[12px] text-muted-foreground">{EXIT_LABEL[exitReason]}</p>
         </div>
 
         <section className="flex flex-col gap-2">
-          <h2 className="text-[13px] font-semibold text-muted-foreground">① 실행 — 기록으로 판정</h2>
+          <h2 className="flex items-baseline gap-2 text-[13px] font-semibold text-foreground">
+            <span className="num text-[11px] font-medium text-primary">01</span> 실행 <span className="font-normal text-muted-foreground">· 기록으로 판정</span>
+          </h2>
           <p
             className={cn(
-              "rounded-lg border px-4 py-3 text-[13px] leading-relaxed text-foreground",
+              "rounded-xl border px-4 py-3 text-[13px] leading-relaxed text-foreground",
               followed ? "border-good/40 bg-good/10" : "border-warn/40 bg-warn/10"
             )}
           >
@@ -135,9 +152,11 @@ export function GradingScreen({
 
         {followed && (
           <section className="flex flex-col gap-3">
-            <h2 className="text-[13px] font-semibold text-muted-foreground">② 판단 — 스스로 점검</h2>
+            <h2 className="flex items-baseline gap-2 text-[13px] font-semibold text-foreground">
+              <span className="num text-[11px] font-medium text-primary">02</span> 판단 <span className="font-normal text-muted-foreground">· 스스로 점검</span>
+            </h2>
             {JUDGMENT_QUESTIONS.map((q, i) => (
-              <div key={q.id} className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3">
+              <div key={q.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3.5">
                 <p className="text-[14px] font-semibold text-foreground">{q.question}</p>
                 <p className="text-[12px] leading-snug text-muted-foreground">{q.help}</p>
                 <div className="flex gap-2">
@@ -148,7 +167,7 @@ export function GradingScreen({
                       aria-pressed={answers[i] === value}
                       onClick={() => answer(value, i)}
                       className={cn(
-                        "h-10 flex-1 rounded-md border text-[13px] font-semibold",
+                        "h-10 flex-1 rounded-lg border text-[13px] font-semibold transition-colors",
                         answers[i] === value
                           ? "border-primary bg-primary/15 text-foreground"
                           : "border-border bg-background text-muted-foreground hover:border-primary"
@@ -164,11 +183,39 @@ export function GradingScreen({
           </section>
         )}
 
-        {(!followed || complete) && preview && (
-          <p className="text-center text-[13px] text-foreground">
-            이번 채점: <span className="font-semibold">{preview.value}</span> — {preview.label}
-          </p>
-        )}
+        {/* 결과 화면의 첫 카드와 같은 모양 — 왼쪽 등급은 지금 정해지고, 오른쪽 결과는 채점해야 열린다.
+            결과 값은 여기에 절대 넣지 않는다(자리표시 "?"만) */}
+        <div className="grid overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-[1.1fr_1fr]">
+          <div className="flex items-center gap-4 border-b border-border p-5 sm:border-b-0 sm:border-r">
+            <span
+              className={cn(
+                "num flex size-14 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-[28px] font-bold",
+                (!followed || complete) && preview
+                  ? grade === "A" || grade === "B"
+                    ? "text-good"
+                    : "text-warn"
+                  : "text-muted-foreground/40"
+              )}
+            >
+              {(!followed || complete) && preview ? preview.value : "–"}
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="eyebrow text-muted-foreground">이번 채점</span>
+              <p className="text-[14px] font-semibold leading-snug text-foreground">
+                {(!followed || complete) && preview ? preview.label : "두 질문에 답하면 정해집니다"}
+              </p>
+            </div>
+          </div>
+          <div className="hatch relative flex flex-col items-center justify-center gap-2 px-5 py-6">
+            <span className="flex size-9 items-center justify-center rounded-full border border-border bg-background">
+              <Lock size={15} className="text-primary" />
+            </span>
+            <span className="num select-none text-[28px] font-bold leading-none text-muted-foreground/60 blur-[2px]">
+              ?.?R
+            </span>
+            <span className="text-[12px] text-muted-foreground">채점하면 열립니다</span>
+          </div>
+        </div>
 
         {error && (
           <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">

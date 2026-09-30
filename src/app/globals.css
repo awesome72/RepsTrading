@@ -141,6 +141,14 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
+  /* 가려진 영역 표시 — 랜딩 목업의 빗금과 같은 모양 */
+  .hatch {
+    background-image: repeating-linear-gradient(
+      45deg,
+      color-mix(in oklab, var(--hairline) 70%, transparent) 0 2px,
+      transparent 2px 8px
+    );
+  }
   .num {
     font-family: var(--font-jetbrains-mono);
     font-variant-numeric: tabular-nums;
