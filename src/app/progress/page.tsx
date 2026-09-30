@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { BarChart3 } from "lucide-react";
+import { EmptyState, EMPTY_ACTION_CLASS } from "@/components/layout/empty-state";
 import { GateProgress } from "@/components/gate/gate-progress";
 import { InfoDot } from "@/components/info-tooltip";
 import { Term } from "@/components/term";
@@ -167,9 +170,27 @@ function ProgressView({
       <div className="flex flex-col gap-6 py-10">
         <h1 className="text-[20px] font-bold text-foreground">진척</h1>
         {guestBanner}
-        <p className="text-[13px] text-muted-foreground">
-          {MIN_SAMPLE}회 이상 연습하면 여기에 통계가 나옵니다. (지금 {n}회)
-        </p>
+        <EmptyState
+          icon={BarChart3}
+          title={`${MIN_SAMPLE}회부터 통계가 보입니다`}
+          action={
+            <Link href="/practice" className={EMPTY_ACTION_CLASS}>
+              연습하러 가기
+            </Link>
+          }
+        >
+          <p>평균 R·계획 지킴·판단×결과 표는 표본이 {MIN_SAMPLE}회는 넘어야 읽을 수 있습니다.</p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <span className="flex gap-1" aria-hidden>
+              {Array.from({ length: MIN_SAMPLE }, (_, i) => (
+                <span key={i} className={i < n ? "h-1.5 w-6 rounded-full bg-primary" : "h-1.5 w-6 rounded-full bg-surface-2"} />
+              ))}
+            </span>
+            <span className="num text-[12px] text-foreground">
+              {n}/{MIN_SAMPLE}
+            </span>
+          </div>
+        </EmptyState>
         {showGate && <GateProgress evaluation={summary.gateEvaluation} />}
         {showGate && summary.pace && summary.paceTarget !== null && (
           <PaceLine {...summary.pace} target={summary.paceTarget} />

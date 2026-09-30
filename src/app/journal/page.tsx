@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ClipboardList, SearchX } from "lucide-react";
+import { EmptyState, EMPTY_ACTION_CLASS } from "@/components/layout/empty-state";
 import dynamic from "next/dynamic";
 import { useUser } from "@/lib/auth/use-user";
 import { useRepLogStore } from "@/lib/rep/log-store";
@@ -196,15 +198,17 @@ export default function JournalPage() {
         <h1 className="text-[20px] font-bold text-foreground">기록</h1>
         <GuestNotice variant="banner" count={guestDecisionCount} />
         {guestRows.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
-            <p>아직 연습 기록이 없습니다. 첫 연습은 2분이면 끝납니다.</p>
-            <Link
-              href="/practice"
-              className="rounded-md bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground"
-            >
-              시작하기
-            </Link>
-          </div>
+          <EmptyState
+            icon={ClipboardList}
+            title="아직 연습 기록이 없습니다"
+            action={
+              <Link href="/practice" className={EMPTY_ACTION_CLASS}>
+                첫 연습 시작하기
+              </Link>
+            }
+          >
+            첫 연습은 2분이면 끝납니다. 판단 하나하나가 여기에 쌓입니다.
+          </EmptyState>
         ) : (
           <RepTable
             rows={guestRows}
@@ -261,29 +265,34 @@ export default function JournalPage() {
       </div>
 
       {rows.length === 0 && (setupFilter !== "all" || gradeFilter !== "all") ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
-          <p>이 조건에 맞는 기록이 없습니다.</p>
-          <button
-            type="button"
-            onClick={() => {
-              setSetupFilter("all");
-              setGradeFilter("all");
-            }}
-            className="rounded-md border border-border bg-card px-4 py-2 text-[13px] text-foreground"
-          >
-            필터 해제
-          </button>
-        </div>
+        <EmptyState
+          icon={SearchX}
+          title="이 조건에 맞는 기록이 없습니다"
+          action={
+            <button
+              type="button"
+              onClick={() => {
+                setSetupFilter("all");
+                setGradeFilter("all");
+              }}
+              className="rounded-full border border-border px-5 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-2"
+            >
+              필터 해제
+            </button>
+          }
+        />
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12 text-center text-[13px] text-muted-foreground">
-          <p>아직 연습 기록이 없습니다. 첫 연습은 2분이면 끝납니다.</p>
-          <Link
-            href="/practice"
-            className="rounded-md bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground"
-          >
-            시작하기
-          </Link>
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title="아직 연습 기록이 없습니다"
+          action={
+            <Link href="/practice" className={EMPTY_ACTION_CLASS}>
+              첫 연습 시작하기
+            </Link>
+          }
+        >
+          첫 연습은 2분이면 끝납니다. 판단 하나하나가 여기에 쌓입니다.
+        </EmptyState>
       ) : (
         <>
           <RepTable
