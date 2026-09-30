@@ -146,3 +146,57 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* ── 움직임 ──────────────────────────────────────────────
+   한 번만 재생되는 짧은 등장 효과만 쓴다(반복·깜빡임 없음).
+   animation-fill-mode: both — 지연 시간 동안에도 시작 상태(투명)를 유지한다. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes candle-in {
+  from { opacity: 0; transform: scaleY(0.3); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes lock {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: none; }
+}
+
+@layer utilities {
+  .anim-rise { animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .anim-fade { animation: fade 0.5s ease-out both; }
+  .anim-candle {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: candle-in 0.35s ease-out both;
+  }
+  .anim-draw {
+    stroke-dasharray: 1;
+    animation: draw 1s ease-out both;
+  }
+  .anim-lock {
+    transform-origin: center;
+    animation: lock 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-fade,
+  .anim-candle,
+  .anim-draw,
+  .anim-lock {
+    animation: none !important;
+  }
+  .anim-draw { stroke-dasharray: none; }
+}
