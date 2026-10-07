@@ -6,6 +6,7 @@ import { ArrowRight, RotateCcw } from "lucide-react";
 import { DECISION_INDEX, generateScenario, type SetupLabel } from "@/lib/market/scenario";
 import { smaSeries } from "@/lib/market/indicators";
 import { SETUP_HINT, SETUP_NAME } from "@/lib/market/setup-copy";
+import { trackEvent } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
 import { CandleSvg, priceRange } from "./candle-svg";
 
@@ -37,6 +38,11 @@ export function LandingQuiz() {
   const answered = choice !== null;
   const correct = choice === data.label;
   const shown = answered ? data.all : data.all.slice(0, VISIBLE);
+
+  function pick(c: SetupLabel) {
+    setChoice(c);
+    trackEvent({ name: "try_answer", props: { correct: c === data.label } });
+  }
 
   function nextChart() {
     setChoice(null);
@@ -75,7 +81,7 @@ export function LandingQuiz() {
                 key={c}
                 type="button"
                 disabled={answered}
-                onClick={() => setChoice(c)}
+                onClick={() => pick(c)}
                 className={cn(
                   "h-11 rounded-lg border px-3 text-[14px] font-semibold transition-all",
                   !answered && "border-border text-foreground hover:-translate-y-px hover:border-primary",

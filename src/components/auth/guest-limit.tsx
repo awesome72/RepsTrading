@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Shapes } from "lucide-react";
 import { Term } from "@/components/term";
+import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import { GUEST_REP_LIMIT } from "@/lib/rep/log-store";
 import { guestSummary } from "@/lib/rep/guest-summary";
 import type { Rep } from "@/lib/rep/types";
@@ -30,6 +31,7 @@ export function GuestLimit({ reps }: { reps: Rep[] }) {
 
   return (
     <div className="anim-rise mx-auto flex w-full max-w-xl flex-col gap-6 rounded-2xl border border-border bg-card p-6 sm:p-8">
+      <TrackOnMount event={{ name: "guest_limit_reached" }} />
       <div className="flex flex-col gap-2">
         <span className="eyebrow text-primary">게스트 연습 {GUEST_REP_LIMIT}회 완료</span>
         <h1 className="text-[24px] font-bold leading-snug tracking-[-0.02em] text-foreground sm:text-[28px]">

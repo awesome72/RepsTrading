@@ -18,6 +18,7 @@ import { GUEST_REP_LIMIT, useRepLogStore } from "@/lib/rep/log-store";
 import { decisionReps } from "@/lib/metrics/stats";
 import { GuestNotice } from "@/components/auth/guest-notice";
 import { GuestLimit } from "@/components/auth/guest-limit";
+import { nthBucket, trackEvent } from "@/lib/analytics/events";
 import { useAccountStore } from "@/lib/account/store";
 import type { GateTransition as GateTransitionData } from "@/lib/gate/rules";
 import { apiEvaluateGate } from "@/lib/account/api";
@@ -165,6 +166,12 @@ export default function PracticePage() {
     }
   }
 
+  /** 판단 하나가 끝났다는 신호 — n번째(1~5는 그대로)와 종류만 보낸다. 게스트는 서버 기록이 없어 이게 유일한 관측 수단이다 */
+  function reportRepDone(kind: "trade" | "pass") {
+    const n = decisionReps(useRepLogStore.getState().reps).length;
+    trackEvent({ name: "rep_done", props: { nth: nthBucket(n), kind } });
+  }
+
   function handleEnter() {
     setShowForm(true);
   }
@@ -177,13 +184,17 @@ export default function PracticePage() {
     const revealed = useRepStore.getState().rep;
     if (!revealed) return;
     useRepLogStore.getState().addRep(revealed);
-    if (guest) return;
+    if (guest) {
+      reportRepDone("pass");
+      return;
+    }
 
     try {
       const saved = await apiPassRep({ scenarioSeed: scenario.seed, inputSeconds });
       repIdRef.current = saved.id;
       setFeedbackSummary(saved.feedback);
       useRepLogStore.getState().replaceRep(revealed.id, serverRepToRep(saved));
+      reportRepDone("pass");
       checkGateTransition();
     } catch (e) {
       useRepLogStore.getState().removeRep(revealed.id);
@@ -271,7 +282,10 @@ export default function PracticePage() {
       // 게스트는 결과를 이 브라우저에서 계산한다. 로그인해서 옮길 때 서버가 다시 계산·검증한다.
       useRepStore.getState().grade(grade);
       const revealed = useRepStore.getState().rep;
-      if (revealed) useRepLogStore.getState().addRep(revealed);
+      if (revealed) {
+        useRepLogStore.getState().addRep(revealed);
+        reportRepDone("trade");
+      }
       clearPracticeSession();
       return;
     }
@@ -292,6 +306,7 @@ export default function PracticePage() {
       const revealed = useRepStore.getState().rep;
       if (revealed) {
         useRepLogStore.getState().addRep({ ...revealed, id: repId });
+        reportRepDone("trade");
         checkGateTransition();
       }
       // 채점이 끝났으니 새로고침 복구 대상에서 제외한다

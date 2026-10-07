@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics/events";
 import { Button } from "@/components/ui/button";
 import { useRepLogStore } from "@/lib/rep/log-store";
 import { decisionReps } from "@/lib/metrics/stats";
@@ -31,6 +32,7 @@ export default function LoginPage() {
       return;
     }
     setStatus("sent");
+    trackEvent({ name: "login_link_sent" });
   }
 
   return (

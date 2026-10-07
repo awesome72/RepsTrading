@@ -9,6 +9,7 @@ import { Step2Risk } from "@/components/onboarding/step2-risk";
 import { Step3Setup } from "@/components/onboarding/step3-setup";
 import { Step5Plan } from "@/components/onboarding/step5-plan";
 import { useAccountStore } from "@/lib/account/store";
+import { trackEvent } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
 
 // 4단계(가이드 연습)에서만 차트 라이브러리가 필요하다 — 1~3단계를 보는 동안 미리 받지 않게 나눠 싣는다
@@ -28,12 +29,18 @@ export default function OnboardingPage() {
     useAccountStore.getState().hydrate();
   }, []);
 
+  // 단계가 바뀔 때마다 한 번 — 어느 단계에서 그만두는지 보려는 것(1단계는 진입 자체)
+  useEffect(() => {
+    trackEvent({ name: "onboarding_step", props: { step } });
+  }, [step]);
+
   function next() {
     setStep((s) => Math.min(TOTAL_STEPS, s + 1));
   }
 
   function finish() {
     useAccountStore.getState().completeOnboarding();
+    trackEvent({ name: "onboarding_done" });
     router.push("/practice");
   }
 
