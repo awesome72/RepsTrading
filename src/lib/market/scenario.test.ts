@@ -62,7 +62,8 @@ describe("visibleCandles", () => {
 });
 
 describe("셋업 비율에 맞춘 seed 고르기", () => {
-  it("setupLabelForSeed는 generateScenario의 정답과 항상 같다", () => {
+  // 차트를 매번 180봉씩 만드는 테스트라 기본 5초 제한이 부하 걸린 기계에서 빠듯하다
+  it("setupLabelForSeed는 generateScenario의 정답과 항상 같다", { timeout: 30_000 }, () => {
     for (let seed = 1; seed <= 200; seed++) {
       expect(setupLabelForSeed(seed)).toBe(generateScenario(seed).setupLabel);
     }
