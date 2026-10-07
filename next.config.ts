@@ -1,4 +1,17 @@
 import type { NextConfig } from "next";
+import { parseSupabaseEnv } from "./src/lib/env";
+
+/**
+ * Vercel 프로덕션 빌드에서 Supabase 환경변수가 비었으면 배포를 여기서 멈춘다.
+ * 안 그러면 빌드는 통과하고, 배포된 사이트가 모든 요청에서 500을 낸다(미들웨어가 매 요청 Supabase를 만든다).
+ * 프로덕션만 검사한다 — 프리뷰·로컬·CI는 값이 없거나 자리표시일 수 있다.
+ */
+if (process.env.VERCEL_ENV === "production") {
+  parseSupabaseEnv({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+}
 
 /**
  * 모든 응답에 붙는 보안 헤더. 앱 동작을 깨뜨리지 않는 것만 보수적으로 넣었다.

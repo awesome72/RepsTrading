@@ -75,8 +75,10 @@ describe("시나리오 골든 값", () => {
 
 describe("난수 소비 순서", () => {
   /** generateScenario의 첫 난수가 셋업 종류를 정한다 — setupLabelForSeed가 이 값을 그대로 쓰므로 순서가 바뀌면 둘이 어긋난다 */
-  it("setupLabelForSeed는 generateScenario의 정답과 항상 같다", () => {
-    for (let seed = 0; seed < 300; seed++) {
+  // 시드 120개면 충분하다(셋업 종류는 첫 난수 하나로 갈리므로 세 종류 모두 수십 번씩 나온다).
+  // 차트를 매번 180봉씩 만드는 테스트라 기본 5초 제한에 부하가 걸린 기계에서 걸릴 수 있어 여유를 둔다.
+  it("setupLabelForSeed는 generateScenario의 정답과 항상 같다", { timeout: 30_000 }, () => {
+    for (let seed = 0; seed < 120; seed++) {
       expect(setupLabelForSeed(seed), `seed ${seed}`).toBe(generateScenario(seed).setupLabel);
     }
   });

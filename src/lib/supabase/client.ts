@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseEnv } from "@/lib/env";
 
 let clientPromise: Promise<SupabaseClient> | null = null;
 
@@ -9,9 +10,10 @@ let clientPromise: Promise<SupabaseClient> | null = null;
  * 셋 다 화면이 뜬 뒤에 필요하므로, 동적 import로 첫 화면 경로에서 뺀다. 한 번 만든 클라이언트는 재사용한다.
  */
 export function getBrowserClient(): Promise<SupabaseClient> {
-  clientPromise ??= import("@supabase/ssr").then(({ createBrowserClient }) =>
-    createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-  );
+  clientPromise ??= import("@supabase/ssr").then(({ createBrowserClient }) => {
+    const { url, anonKey } = getSupabaseEnv();
+    return createBrowserClient(url, anonKey);
+  });
   return clientPromise;
 }
 
